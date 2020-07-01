@@ -26,4 +26,11 @@ replace (
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.16.8
 )
 
-require github.com/virtual-kubelet/virtual-kubelet v1.2.1 // indirect
+require (
+	github.com/containers/libpod v1.9.3
+	github.com/pbnjay/memory v0.0.0-20190104145345-974d429e7ae4
+	github.com/virtual-kubelet/virtual-kubelet v1.2.1
+	k8s.io/api v0.17.4
+	k8s.io/apimachinery v0.17.4
+	k8s.io/client-go v10.0.0+incompatible
+)

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: testpod
+spec:
+  containers:
+  - name: nullish
+    image: nullish
+    ports:
+    - containerPort: 80
+  nodeSelector:
+    purpose: metal
+  # tolerations:
+  # - key: node.kubernetes.io/unreachable
+  #   operator: Exists
+  # :NoSchedule
+  # nodeName: ausbox
