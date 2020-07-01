@@ -5,8 +5,8 @@ import (
 	"log"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	// // coordv1 "k8s.io/api/coordination/v1beta1"
 	// "k8s.io/apimachinery/pkg/api/resource"
 	// corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -22,14 +22,14 @@ import (
 )
 
 type PodmanProvider struct {
-	podman *podman.PodmanClient
-	pods map[string]*corev1.Pod
+	podman      *podman.PodmanClient
+	pods        map[string]*corev1.Pod
 	podNotifier func(*corev1.Pod)
 }
 
 // CreatePod takes a Kubernetes Pod and deploys it within the provider.
 func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
-	key := pod.ObjectMeta.Namespace+"_"+pod.ObjectMeta.Name
+	key := pod.ObjectMeta.Namespace + "_" + pod.ObjectMeta.Name
 
 	log.Println("create", key)
 	log.Printf("create pod %+v", pod)
@@ -41,8 +41,8 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 		// DnsServer: []string{"10.6.0.10"}, // 10.8.0.131:53,10.8.0.131:53
 		PodBasicConfig: podman.PodBasicConfig{
 			Hostname: pod.ObjectMeta.Name,
-			Labels:             map[string]string{},
-			Name               : key,
+			Labels:   map[string]string{},
+			Name:     key,
 		},
 		// TODO: Host network, Host ports
 		// TODO: share process namespace
@@ -52,7 +52,6 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 		return err
 	}
 	log.Printf("pod create %+v", creation)
-
 
 	now := metav1.NewTime(time.Now())
 	pod.Status = corev1.PodStatus{
@@ -124,9 +123,7 @@ func (d *PodmanProvider) GetPod(ctx context.Context, namespace, name string) (*c
 // to return a version after DeepCopy.
 func (d *PodmanProvider) GetPodStatus(ctx context.Context, namespace, name string) (*corev1.PodStatus, error) {
 	log.Println("get status", namespace, name)
-	return &corev1.PodStatus{
-
-	}, nil
+	return &corev1.PodStatus{}, nil
 }
 
 // GetPods retrieves a list of all pods running on the provider (can be cached).
@@ -145,9 +142,9 @@ func (d *PodmanProvider) GetPods(context.Context) ([]*corev1.Pod, error) {
 	for _, sysPod := range sysPods {
 		pod := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "testpod",
+				Name:      "testpod",
 				Namespace: "default",
-				Labels: sysPod.Labels,
+				Labels:    sysPod.Labels,
 			},
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{

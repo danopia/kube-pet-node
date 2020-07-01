@@ -14,8 +14,9 @@ func (pc *PodmanClient) ContainerCreate(ctx context.Context, spec *SpecGenerator
 	var out ContainerCreateReport
 	return &out, json.NewDecoder(response.Body).Decode(&out)
 }
+
 type ContainerCreateReport struct {
-	Id string
+	Id       string
 	Warnings []string
 }
 

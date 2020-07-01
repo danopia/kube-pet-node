@@ -11,8 +11,8 @@ import (
 
 	// "github.com/pbnjay/memory"
 
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	// corev1 "k8s.io/api/core/v1"
 	// // coordv1 "k8s.io/api/coordination/v1beta1"
@@ -27,7 +27,6 @@ import (
 	// // "github.com/virtual-kubelet/virtual-kubelet/log"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-
 	// "github.com/danopia/kube-edge-node/podman"
 )
 

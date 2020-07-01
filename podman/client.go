@@ -1,19 +1,19 @@
 package podman
 
 import (
-	"net/http"
-	"context"
-	"net"
-	"log"
-	"encoding/json"
 	"bytes"
+	"context"
+	"encoding/json"
+	"log"
+	"net"
+	"net/http"
 )
 
 type PodmanClient struct {
 	http http.Client
 }
 
-func NewPodmanClient(socket string) (*PodmanClient) {
+func NewPodmanClient(socket string) *PodmanClient {
 	return &PodmanClient{
 		http: http.Client{
 			Transport: &http.Transport{

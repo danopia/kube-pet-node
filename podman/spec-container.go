@@ -3,10 +3,9 @@ package podman
 // mostly from https://github.com/containers/libpod/blob/master/pkg/specgen/specgen.go
 
 import (
-	"os"
 	"net"
+	"os"
 	"syscall"
-
 	// "github.com/containers/image/v5/manifest"
 	// "github.com/containers/storage"
 	// spec "github.com/opencontainers/runtime-spec/specs-go"
@@ -457,14 +456,12 @@ type PortMapping struct {
 	Protocol string `json:"protocol,omitempty"`
 }
 
-
 // Namespace describes the namespace
 // https://github.com/containers/libpod/blob/master/pkg/specgen/namespaces.go
 type Namespace struct {
 	NSMode string `json:"nsmode,omitempty"`
-	Value  string        `json:"string,omitempty"`
+	Value  string `json:"string,omitempty"`
 }
-
 
 // https://github.com/opencontainers/runtime-spec/blob/master/specs-go/config.go
 
