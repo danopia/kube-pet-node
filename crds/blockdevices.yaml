@@ -1,0 +1,137 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  # name must match the spec fields below, and be in the form: <plural>.<group>
+  name: blockdevices.pet.wg69.net
+spec:
+  # group name to use for REST API: /apis/<group>/<version>
+  group: pet.wg69.net
+  # list of versions supported by this CustomResourceDefinition
+  versions:
+    - name: v1
+      # Each version can be enabled/disabled by Served flag.
+      served: true
+      # One and only one version must be marked as the storage version.
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          required:
+          - spec
+          properties:
+            spec:
+              type: object
+              required:
+              - nodeName
+              - devicePath
+              - userCapacity
+              properties:
+                nodeName:
+                  type: string
+                devicePath:
+                  type: string
+                deviceModel:
+                  type: string
+                serialNumber:
+                  type: string
+                userCapacity:
+                  type: integer
+                userCapacityHuman:
+                  type: string
+                logicalSectorSize:
+                  type: integer
+                physicalSectorSize:
+                  type: integer
+                rotationRate:
+                  x-kubernetes-int-or-string: true
+                formFactor:
+                  type: string
+            status:
+              type: object
+              required:
+              - sataStatus
+              - smartEnabled
+              properties:
+                sataStatus:
+                  type: string
+                smartEnabled:
+                  type: boolean
+                smartReport:
+                  type: object
+                  required:
+                  - collectionTime
+                  - overallAssessment
+                  - attributes
+                  - errors
+                  properties:
+                    collectionTime:
+                      type: string
+                      format: date-time
+                    overallAssessment:
+                      type: string
+                    attributes:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          id:
+                            type: integer
+                          name:
+                            type: string
+                          currentHealth:
+                            type: integer
+                          worstHealth:
+                            type: integer
+                          threshold:
+                            type: integer
+                          type:
+                            type: string
+                          rawValue:
+                            type: string
+                    errors:
+                      type: array
+                      items:
+                        type: string
+
+      additionalPrinterColumns:
+      - name: Node
+        type: string
+        description: Node which currently holds this device
+        jsonPath: .spec.nodeName
+      - name: Path
+        type: string
+        description: Current path to the block device on the host node
+        jsonPath: .spec.devicePath
+      - name: Model
+        type: string
+        description: Make and Model of the block device
+        jsonPath: .spec.deviceModel
+      - name: Capacity
+        type: string
+        description: Number of bytes the block device can store at once
+        jsonPath: .spec.userCapacityHuman
+      - name: RPM
+        type: string
+        description: Rotations per second, if the drive spins
+        jsonPath: .spec.rotationRate
+      - name: Form
+        type: string
+        description: Form factor of the block device
+        jsonPath: .spec.formFactor
+      - name: SMART
+        type: string
+        description: Overall assessment reported by the block device via S.M.A.R.T.
+        jsonPath: .status.smartReport.overallAssessment
+
+  # either Namespaced or Cluster
+  scope: Cluster
+  names:
+    # plural name to be used in the URL: /apis/<group>/<version>/<plural>
+    plural: blockdevices
+    # singular name to be used as an alias on the CLI and for display
+    singular: blockdevice
+    # kind is normally the CamelCased singular type. Your resource manifests use this.
+    kind: BlockDevice
+    # shortNames allow shorter string to match your resource on the CLI
+    shortNames:
+    - blk
