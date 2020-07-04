@@ -13,18 +13,18 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	"github.com/danopia/kube-edge-node/podman"
+	"github.com/danopia/kube-pet-node/podman"
 )
 
-// EdgeNodeProvider is a node provider that fills in
+// PetNodeProvider is a node provider that fills in
 // the status and health for our Kubernetes Node object.
-type EdgeNodeProvider struct {
+type PetNodeProvider struct {
 	node       *corev1.Node
 	podman     *podman.PodmanClient
 	conVersion *podman.DockerVersionReport
 }
 
-func NewEdgeNodeProvider(node *corev1.Node, podman *podman.PodmanClient) (*EdgeNodeProvider, error) {
+func NewPetNodeProvider(node *corev1.Node, podman *podman.PodmanClient) (*PetNodeProvider, error) {
 	conVersion, err := podman.Version(context.TODO())
 	if err != nil {
 		return nil, err
@@ -41,18 +41,18 @@ func NewEdgeNodeProvider(node *corev1.Node, podman *podman.PodmanClient) (*EdgeN
 		log.Println("No more events")
 	}()
 
-	return &EdgeNodeProvider{
+	return &PetNodeProvider{
 		node:       node,
 		podman:     podman,
 		conVersion: conVersion,
 	}, nil
 }
 
-func (np *EdgeNodeProvider) Ping(ctx context.Context) error {
+func (np *PetNodeProvider) Ping(ctx context.Context) error {
 	return ctx.Err()
 }
 
-func (np *EdgeNodeProvider) NotifyNodeStatus(ctx context.Context, f func(*corev1.Node)) {
+func (np *PetNodeProvider) NotifyNodeStatus(ctx context.Context, f func(*corev1.Node)) {
 	log.Println("Building node status...")
 
 	localImages, err := np.podman.List(ctx)

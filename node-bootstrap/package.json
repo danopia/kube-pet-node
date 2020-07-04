@@ -1,5 +1,5 @@
 {
-  "name": "kube-edge-node-bootstrap",
+  "name": "kube-pet-node-bootstrap",
   "version": "0.1.0",
   "description": "",
   "main": "gen-node-identity.js",

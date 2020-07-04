@@ -18,7 +18,7 @@ import (
 	// "github.com/virtual-kubelet/virtual-kubelet/node"
 	// // "github.com/virtual-kubelet/virtual-kubelet/log"
 
-	"github.com/danopia/kube-edge-node/podman"
+	"github.com/danopia/kube-pet-node/podman"
 )
 
 type PodmanProvider struct {

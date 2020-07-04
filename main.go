@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
-	"github.com/danopia/kube-edge-node/controller"
-	"github.com/danopia/kube-edge-node/podman"
+	"github.com/danopia/kube-pet-node/controller"
+	"github.com/danopia/kube-pet-node/podman"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -32,21 +32,21 @@ func main() {
 		panic(err)
 	}
 
-	edgeNode, err := controller.NewEdgeNode("pet-berbox", podman, clientset)
+	petNode, err := controller.NewPetNode("pet-berbox", podman, clientset)
 	if err != nil {
 		panic(err)
 	}
 
 	select {
-	case <-edgeNode.PodRunner.Ready():
+	case <-petNode.PodRunner.Ready():
 		log.Println("Ready...")
-		<-edgeNode.PodRunner.Done()
+		<-petNode.PodRunner.Done()
 		log.Println("Done!")
-	case <-edgeNode.PodRunner.Done():
+	case <-petNode.PodRunner.Done():
 		log.Println("Done...")
 	}
-	if edgeNode.PodRunner.Err() != nil {
-		log.Println(edgeNode.PodRunner.Err())
+	if petNode.PodRunner.Err() != nil {
+		log.Println(petNode.PodRunner.Err())
 		// handle error
 	}
 	log.Println("exit")

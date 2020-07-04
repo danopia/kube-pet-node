@@ -22,13 +22,13 @@ import (
 
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	"github.com/danopia/kube-edge-node/podman"
+	"github.com/danopia/kube-pet-node/podman"
 )
 
 // type NP struct {}
 // func (np *NP) NotifyNodeStatus(	)
 
-type EdgeNode struct {
+type PetNode struct {
 	NodeName          string
 	Podman            *podman.PodmanClient
 	Kubernetes        *kubernetes.Clientset
@@ -40,28 +40,28 @@ type EdgeNode struct {
 	ServiceInformer   corev1informers.ServiceInformer
 }
 
-func NewEdgeNode(nodeName string, podman *podman.PodmanClient, kubernetes *kubernetes.Clientset) (*EdgeNode, error) {
+func NewPetNode(nodeName string, podman *podman.PodmanClient, kubernetes *kubernetes.Clientset) (*PetNode, error) {
 
 	pNode := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nodeName,
 			Labels: map[string]string{
-				"purpose": "edge",
+				"purpose": "pet",
 			},
 		},
 		Spec: corev1.NodeSpec{
 			PodCIDR:    "10.6.2.33/27",
 			PodCIDRs:   []string{"10.6.2.33/27"},
-			ProviderID: "edge://" + nodeName,
+			ProviderID: "pet://" + nodeName,
 			Taints: []corev1.Taint{{
-				Key:    "kubernetes.io/edge-node",
-				Value:  "edge",
+				Key:    "kubernetes.io/pet-node",
+				Value:  nodeName,
 				Effect: "NoSchedule",
 			}},
 		},
 	}
 
-	nodeProvider, err := NewEdgeNodeProvider(pNode, podman)
+	nodeProvider, err := NewPetNodeProvider(pNode, podman)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +131,7 @@ func NewEdgeNode(nodeName string, podman *podman.PodmanClient, kubernetes *kuber
 	<-nodeRunner.Ready()
 	log.Println("Node ready!")
 
-	return &EdgeNode{
+	return &PetNode{
 		NodeName:   nodeName,
 		Kubernetes: kubernetes,
 		Podman:     podman,

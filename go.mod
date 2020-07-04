@@ -1,4 +1,4 @@
-module github.com/danopia/kube-edge-node
+module github.com/danopia/kube-pet-node
 
 go 1.13
 
