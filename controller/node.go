@@ -4,16 +4,12 @@ import (
 	"context"
 	"log"
 	"path"
-	"runtime"
-
-	"github.com/pbnjay/memory"
 
 	// "k8s.io/client-go/tools/clientcmd"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	// coordv1 "k8s.io/api/coordination/v1beta1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	// corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"github.com/virtual-kubelet/virtual-kubelet/node"
@@ -46,23 +42,6 @@ type EdgeNode struct {
 
 func NewEdgeNode(nodeName string, podman *podman.PodmanClient, kubernetes *kubernetes.Clientset) (*EdgeNode, error) {
 
-	localImages, err := podman.List(context.TODO())
-	if err != nil {
-		return nil, err
-	}
-	var localImagesMapped []corev1.ContainerImage
-	for _, img := range localImages {
-		localImagesMapped = append(localImagesMapped, corev1.ContainerImage{
-			Names:     img.Names,
-			SizeBytes: img.Size,
-		})
-	}
-
-	conVersion, err := podman.Version(context.TODO())
-	if err != nil {
-		return nil, err
-	}
-
 	pNode := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nodeName,
@@ -73,94 +52,21 @@ func NewEdgeNode(nodeName string, podman *podman.PodmanClient, kubernetes *kuber
 		Spec: corev1.NodeSpec{
 			PodCIDR:    "10.6.2.33/27",
 			PodCIDRs:   []string{"10.6.2.33/27"},
-			ProviderID: "metal://" + nodeName,
+			ProviderID: "edge://" + nodeName,
 			Taints: []corev1.Taint{{
 				Key:    "kubernetes.io/edge-node",
 				Value:  "edge",
 				Effect: "NoSchedule",
 			}},
 		},
-		Status: corev1.NodeStatus{
-			Capacity: corev1.ResourceList{
-				"cpu":               *resource.NewScaledQuantity(int64(runtime.NumCPU()), 0),
-				"memory":            *resource.NewQuantity(int64(memory.TotalMemory()), resource.BinarySI),
-				"pods":              resource.MustParse("1"), // TODO
-				"ephemeral-storage": resource.MustParse("0"), // TODO
-				"hugepages-2Mi":     resource.MustParse("0"),
-			},
-			Allocatable: corev1.ResourceList{
-				"cpu":               resource.MustParse("1000m"),
-				"memory":            resource.MustParse("1000Mi"),
-				"pods":              resource.MustParse("1"),
-				"ephemeral-storage": resource.MustParse("0"),
-				"hugepages-2Mi":     resource.MustParse("0"),
-			},
-			Conditions: []corev1.NodeCondition{
-				{
-					// lastHeartbeatTime: "2020-06-30T17:20:59Z"
-					// lastTransitionTime: "2020-05-18T22:36:38Z"
-					Message: "Hello World",
-					Reason:  "KubeletReady",
-					Status:  "True",
-					Type:    "Ready",
-				},
-				{
-					Message: "Hello World",
-					Reason:  "OK",
-					Status:  "False",
-					Type:    "MemoryPressure",
-				},
-				{
-					Message: "Hello World",
-					Reason:  "OK",
-					Status:  "False",
-					Type:    "DiskPressure",
-				},
-				{
-					Message: "Hello World",
-					Reason:  "OK",
-					Status:  "False",
-					Type:    "PIDPressure",
-				},
-			},
-			Images: localImagesMapped,
-			NodeInfo: corev1.NodeSystemInfo{
-				Architecture:            conVersion.Arch,
-				MachineID:               nodeName, // TODO: /etc/machine-id
-				KernelVersion:           conVersion.KernelVersion,
-				OSImage:                 "Debian GNU/Linux 10 (buster)", // TODO: /etc/os-release
-				ContainerRuntimeVersion: "podman://" + conVersion.Version,
-				KubeletVersion:          "metal/v0.1.0", // TODO?
-				OperatingSystem:         conVersion.Os,
-			},
-			Addresses: []corev1.NodeAddress{
-				{
-					Type:    corev1.NodeHostName,
-					Address: nodeName,
-				},
-				{
-					Type:    corev1.NodeInternalIP,
-					Address: "10.6.24.27",
-				},
-				{
-					Type:    corev1.NodeInternalDNS,
-					Address: nodeName + ".local",
-				},
-				{
-					Type:    corev1.NodeExternalIP,
-					Address: "35.222.199.140",
-				},
-			},
-		},
-		// status:
-		//   daemonEndpoints:
-		//     kubeletEndpoint:
-		//       Port: 10250
-		//   volumesAttached: []
-		//   volumesInUse: []
 	}
 
-	nodeRunner, err := node.NewNodeController(node.NaiveNodeProvider{}, pNode, kubernetes.CoreV1().Nodes(), node.WithNodeEnableLeaseV1Beta1(kubernetes.CoordinationV1beta1().Leases(corev1.NamespaceNodeLease), nil))
+	nodeProvider, err := NewEdgeNodeProvider(pNode, podman)
+	if err != nil {
+		return nil, err
+	}
+
+	nodeRunner, err := node.NewNodeController(nodeProvider, pNode, kubernetes.CoreV1().Nodes(), node.WithNodeEnableLeaseV1Beta1(kubernetes.CoordinationV1beta1().Leases(corev1.NamespaceNodeLease), nil))
 	if err != nil {
 		return nil, err
 	}

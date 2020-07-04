@@ -55,10 +55,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 
 	now := metav1.NewTime(time.Now())
 	pod.Status = corev1.PodStatus{
-		Phase:     corev1.PodRunning,
-		HostIP:    "1.2.3.4",
-		PodIP:     "5.6.7.8",
-		StartTime: &now,
+		Phase: corev1.PodPending,
 		Conditions: []corev1.PodCondition{
 			{
 				Type:   corev1.PodInitialized,
@@ -82,11 +79,49 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 			Ready:        false,
 			RestartCount: 0,
 			State: corev1.ContainerState{
-				Running: &corev1.ContainerStateRunning{
-					StartedAt: now,
+				Waiting: &corev1.ContainerStateWaiting{
+					Reason:  "Initializing",
+					Message: "Container will be started soon.",
 				},
 			},
 		})
+	}
+
+	d.podNotifier(pod)
+
+	msg, err := d.podman.PodStart(ctx, creation.Id)
+	if err != nil {
+		log.Println("pod start err", err)
+		return err
+	}
+	log.Printf("pod started %+v", msg)
+
+	pod.Status = corev1.PodStatus{
+		Phase:     corev1.PodRunning,
+		HostIP:    "1.2.3.4",
+		PodIP:     "5.6.7.8",
+		StartTime: &now,
+		Conditions: []corev1.PodCondition{
+			{
+				Type:   corev1.PodInitialized,
+				Status: corev1.ConditionTrue,
+			},
+			{
+				Type:   corev1.PodReady,
+				Status: corev1.ConditionTrue,
+			},
+			{
+				Type:   corev1.PodScheduled,
+				Status: corev1.ConditionTrue,
+			},
+		},
+	}
+	for _, cs := range pod.Status.ContainerStatuses {
+		cs.State = corev1.ContainerState{
+			Running: &corev1.ContainerStateRunning{
+				StartedAt: now,
+			},
+		}
 	}
 
 	d.podNotifier(pod)
@@ -105,6 +140,54 @@ func (d *PodmanProvider) UpdatePod(ctx context.Context, pod *corev1.Pod) error {
 // state, as well as the pod. DeletePod may be called multiple times for the same pod.
 func (d *PodmanProvider) DeletePod(ctx context.Context, pod *corev1.Pod) error {
 	log.Println("delete", pod.ObjectMeta.Name)
+
+	key := pod.ObjectMeta.Namespace + "_" + pod.ObjectMeta.Name
+
+	now := metav1.NewTime(time.Now())
+	msg, err := d.podman.PodStop(ctx, key)
+	if err != nil {
+		log.Println("pod stop err", err)
+		return err
+	}
+	log.Printf("pod stopped %+v", msg)
+
+	pod.Status.Conditions = []corev1.PodCondition{
+		{
+			Type:   corev1.PodInitialized,
+			Status: corev1.ConditionTrue,
+		},
+		{
+			Type:   corev1.PodReady,
+			Status: corev1.ConditionFalse,
+		},
+		{
+			Type:   corev1.PodScheduled,
+			Status: corev1.ConditionTrue,
+		},
+	}
+	for _, cs := range pod.Status.ContainerStatuses {
+		cs.State = corev1.ContainerState{
+			Terminated: &corev1.ContainerStateTerminated{
+				StartedAt:   cs.State.Running.StartedAt,
+				FinishedAt:  now,
+				ExitCode:    420,
+				Reason:      "pod deleted",
+				ContainerID: "podman://" + msg.Id,
+			},
+		}
+	}
+
+	d.podNotifier(pod)
+
+	delete(d.pods, key)
+
+	rmMsg, err := d.podman.PodRm(ctx, key)
+	if err != nil {
+		log.Println("pod del err", err)
+		return err
+	}
+	log.Printf("pod deleteded %+v", rmMsg)
+
 	return nil
 }
 
@@ -114,7 +197,9 @@ func (d *PodmanProvider) DeletePod(ctx context.Context, pod *corev1.Pod) error {
 // to return a version after DeepCopy.
 func (d *PodmanProvider) GetPod(ctx context.Context, namespace, name string) (*corev1.Pod, error) {
 	log.Println("get pod", namespace, name)
-	return nil, nil
+
+	key := namespace + "_" + name
+	return d.pods[key], nil
 }
 
 // GetPodStatus retrieves the status of a pod by name from the provider.

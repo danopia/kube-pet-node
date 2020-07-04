@@ -5,6 +5,11 @@ import (
 	"encoding/json"
 )
 
+type PodActionReport struct {
+	Id   string
+	Errs []string
+}
+
 // PodCreate(ctx context.Context, opts PodCreateOptions) (*PodCreateReport, error)
 func (pc *PodmanClient) PodCreate(ctx context.Context, spec PodSpecGenerator) (*PodCreateReport, error) {
 	response, err := pc.performPost(ctx, "/libpod/pods/create", spec)
@@ -59,14 +64,80 @@ type ListPodsContainer struct {
 }
 
 // PodRestart(ctx context.Context, namesOrIds []string, options PodRestartOptions) ([]*PodRestartReport, error)
+func (pc *PodmanClient) PodRestart(ctx context.Context, nameOrId string) (*PodActionReport, error) {
+	encoded, err := UrlEncoded(nameOrId)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := pc.performPost(ctx, "/libpod/pods/"+encoded+"/restart", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var out PodActionReport
+	return &out, json.NewDecoder(response.Body).Decode(&out)
+}
 
 // PodRm(ctx context.Context, namesOrIds []string, options PodRmOptions) ([]*PodRmReport, error)
+func (pc *PodmanClient) PodRm(ctx context.Context, nameOrId string) (*PodRmReport, error) {
+	encoded, err := UrlEncoded(nameOrId)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := pc.performDelete(ctx, "/libpod/pods/"+encoded)
+	if err != nil {
+		return nil, err
+	}
+
+	var out PodRmReport
+	return &out, json.NewDecoder(response.Body).Decode(&out)
+}
+
+type PodRmReport struct {
+	Id  string
+	Err string
+}
 
 // PodStart(ctx context.Context, namesOrIds []string, options PodStartOptions) ([]*PodStartReport, error)
+func (pc *PodmanClient) PodStart(ctx context.Context, nameOrId string) (*PodActionReport, error) {
+	encoded, err := UrlEncoded(nameOrId)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := pc.performPost(ctx, "/libpod/pods/"+encoded+"/start", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var out PodActionReport
+	return &out, json.NewDecoder(response.Body).Decode(&out)
+}
 
 // PodStats(ctx context.Context, namesOrIds []string, options PodStatsOptions) ([]*PodStatsReport, error)
 
 // PodStop(ctx context.Context, namesOrIds []string, options PodStopOptions) ([]*PodStopReport, error)
+func (pc *PodmanClient) PodStop(ctx context.Context, nameOrId string) (*PodActionReport, error) {
+	// TODO: ?t= timeout secs
+	encoded, err := UrlEncoded(nameOrId)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := pc.performPost(ctx, "/libpod/pods/"+encoded+"/stop", nil)
+	if err != nil {
+		return nil, err
+	} else if response.StatusCode == 304 {
+		return &PodActionReport{
+			Errs: []string{"Already Stopped"},
+		}, nil
+	}
+
+	var out PodActionReport
+	return &out, json.NewDecoder(response.Body).Decode(&out)
+}
 
 // PodTop(ctx context.Context, options PodTopOptions) (*StringSliceReport, error)
 
