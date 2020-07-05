@@ -88,14 +88,14 @@ func (np *PetNodeProvider) NotifyNodeStatus(ctx context.Context, f func(*corev1.
 		Capacity: corev1.ResourceList{
 			"cpu":               *resource.NewScaledQuantity(int64(runtime.NumCPU()), 0),
 			"memory":            *resource.NewQuantity(int64(memory.TotalMemory()), resource.BinarySI),
-			"pods":              resource.MustParse("1"), // TODO
+			"pods":              resource.MustParse("25"), // TODO
 			"ephemeral-storage": resource.MustParse("0"), // TODO
 			"hugepages-2Mi":     resource.MustParse("0"),
 		},
 		Allocatable: corev1.ResourceList{
 			"cpu":               resource.MustParse("1000m"),
 			"memory":            resource.MustParse("1000Mi"),
-			"pods":              resource.MustParse("1"),
+			"pods":              resource.MustParse("10"),
 			"ephemeral-storage": resource.MustParse("0"),
 			"hugepages-2Mi":     resource.MustParse("0"),
 		},
@@ -146,16 +146,16 @@ func (np *PetNodeProvider) NotifyNodeStatus(ctx context.Context, f func(*corev1.
 			},
 			{
 				Type:    corev1.NodeInternalIP,
-				Address: "10.6.24.27",
+				Address: "10.6.26.10",
 			},
 			{
 				Type:    corev1.NodeInternalDNS,
 				Address: np.node.ObjectMeta.Name + ".local",
 			},
-			{
-				Type:    corev1.NodeExternalIP,
-				Address: "35.222.199.140",
-			},
+			// {
+			// 	Type:    corev1.NodeExternalIP,
+			// 	Address: "35.222.199.140",
+			// },
 		},
 	}
 

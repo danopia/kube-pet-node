@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"log"
+	"strings"
 	"net"
 	"time"
 
@@ -412,10 +413,11 @@ func (d *PodmanProvider) GetPods(context.Context) ([]*corev1.Pod, error) {
 
 	pods := make([]*corev1.Pod, 0)
 	for _, sysPod := range sysPods {
+		nameParts := strings.Split(sysPod.Name, "_")
 		pod := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "testpod",
-				Namespace: "default",
+				Name:      nameParts[1],
+				Namespace: nameParts[0],
 				Labels:    sysPod.Labels,
 			},
 			Spec: corev1.PodSpec{

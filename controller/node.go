@@ -50,8 +50,8 @@ func NewPetNode(nodeName string, podman *podman.PodmanClient, kubernetes *kubern
 			},
 		},
 		Spec: corev1.NodeSpec{
-			PodCIDR:    "10.6.2.33/27",
-			PodCIDRs:   []string{"10.6.2.33/27"},
+			PodCIDR:    "10.10.0.0/25", // TODO
+			PodCIDRs:   []string{"10.10.0.0/25"},
 			ProviderID: "pet://" + nodeName,
 			Taints: []corev1.Taint{{
 				Key:    "kubernetes.io/pet-node",
