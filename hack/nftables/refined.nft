@@ -1,0 +1,38 @@
+table ip kube-pet
+flush table kube-pet
+
+table ip kube-pet {
+  chain service-b97565ce-95fa-464a-afd2-3fcfe3fe91fa-tcp-80 {
+    ip protocol tcp dnat to 10.8.0.49:9231
+  }
+  chain service-b97565ce-95fa-464a-afd2-3fcfe3fe91fa {
+    tcp dport 80 counter jump service-b97565ce-95fa-464a-afd2-3fcfe3fe91fa-tcp-80 comment "skychat/stardust-skychat-api http"
+  }
+  chain service-1f7af254-c9ca-11e9-80ed-42010a8000f4 {
+    udp dport 53 counter dnat to 10.8.0.135:53 comment "kube-system/kube-dns dns"
+    tcp dport 53 counter dnat to 10.8.0.135:53 comment "kube-system/kube-dns dns-tcp"
+  }
+
+  chain cluster-ips {
+    type nat hook output priority 20;
+    ip daddr 10.6.15.75 jump service-b97565ce-95fa-464a-afd2-3fcfe3fe91fa comment "skychat/stardust-skychat-api"
+    ip daddr 10.6.0.10 jump service-1f7af254-c9ca-11e9-80ed-42010a8000f4 comment "kube-system/kube-dns"
+  }
+
+  chain nodeports {
+    tcp dport 9000 counter jump service-b97565ce-95fa-464a-afd2-3fcfe3fe91fa-tcp-80
+  }
+
+  chain nodeports-foreign {
+    type nat hook prerouting priority 50;
+    ip daddr 192.168.2.114 jump nodeports
+  }
+  chain nodeports-internal {
+    type nat hook output priority 50;
+    ip daddr 192.168.2.114 jump nodeports
+  }
+  chain nodeports-out {
+    type nat hook postrouting priority 50;
+    ip saddr 192.168.2.0/24 ip daddr 10.8.0.0/14 counter masquerade
+  }
+}

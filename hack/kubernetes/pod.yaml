@@ -8,10 +8,11 @@ spec:
     image: nullish
     ports:
     - containerPort: 80
+  # nodeName: berbox
   nodeSelector:
-    purpose: metal
-  # tolerations:
-  # - key: node.kubernetes.io/unreachable
-  #   operator: Exists
-  # :NoSchedule
-  # nodeName: ausbox
+    purpose: pet
+  tolerations:
+  - key: kubernetes.io/pet-node
+    operator: Equal
+    value: pet-berbox
+    effect: NoSchedule
