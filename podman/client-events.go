@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log"
+	"bufio"
 	"encoding/json"
 )
 
@@ -17,13 +18,17 @@ func (pc *PodmanClient) StreamEvents(ctx context.Context) (<-chan Event, error) 
 
 	stream := make(chan Event)
 	go func(r io.ReadCloser, c chan<- Event) {
-		decoder := json.NewDecoder(r)
+		scanner := bufio.NewScanner(r)
 		defer close(c)
-		for {
+		for scanner.Scan() {
+			chunk := []byte(scanner.Text())
+
 			var event Event
-			if err := decoder.Decode(&event); err != nil {
+			if err := json.Unmarshal(chunk, &event); err != nil {
 				log.Println("Event stream err:", err)
 				break
+			} else {
+				c <- event
 			}
 		}
 		log.Println("Event stream closed")

@@ -1,6 +1,7 @@
 package podman
 
 import (
+	"time"
 	"context"
 	"encoding/json"
 )
@@ -28,6 +29,41 @@ type PodCreateReport struct {
 // PodExists(ctx context.Context, nameOrID string) (*BoolReport, error)
 
 // PodInspect(ctx context.Context, options PodInspectOptions) (*PodInspectReport, error)
+func (pc *PodmanClient) PodInspect(ctx context.Context, nameOrId string) (*InspectPodData, error) {
+	encoded, err := UrlEncoded(nameOrId)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := pc.performGet(ctx, "/libpod/pods/"+encoded+"/json")
+	if err != nil {
+		return nil, err
+	}
+
+	var out InspectPodData
+	return &out, json.NewDecoder(response.Body).Decode(&out)
+}
+type InspectPodData struct {
+	ID string `json:"Id"`
+	Name string
+	Namespace string `json:"Namespace,omitempty"`
+	Created time.Time
+	CreateCommand []string `json:"CreateCommand,omitempty"`
+	State string `json:"State"`
+	Hostname string
+	Labels map[string]string `json:"Labels,omitempty"`
+	CgroupParent string `json:"CgroupParent,omitempty"`
+	CgroupPath string `json:"CgroupPath,omitempty"`
+	InfraContainerID string `json:"InfraContainerID,omitempty"`
+	SharedNamespaces []string `json:"SharedNamespaces,omitempty"`
+	NumContainers uint
+	Containers []InspectPodContainerInfo `json:"Containers,omitempty"`
+}
+type InspectPodContainerInfo struct {
+	ID string `json:"Id"`
+	Name string
+	State string
+}
 
 // PodKill(ctx context.Context, namesOrIds []string, options PodKillOptions) ([]*PodKillReport, error)
 
