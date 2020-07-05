@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"log"
+	"net"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -35,23 +36,166 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 	log.Printf("create pod %+v", pod)
 	d.pods[key] = pod
 
+	shareNs := []string{"ipc", "net", "uts"}
+	if pod.Spec.ShareProcessNamespace != nil && *pod.Spec.ShareProcessNamespace {
+		shareNs = append(shareNs, "pid")
+	}
+
+	var netConfig podman.PodNetworkConfig
+	if pod.Spec.HostNetwork {
+		netConfig.NetNS.NSMode = "host"
+	} else {
+		netConfig.NetNS.NSMode = "bridge"
+		netConfig.CNINetworks = []string{"kube-pet"}
+	}
+
+	switch pod.Spec.DNSPolicy {
+	case corev1.DNSClusterFirstWithHostNet:
+		netConfig.DNSServer = []net.IP{net.ParseIP("10.6.0.10")}
+		netConfig.DNSSearch = []string{
+			pod.ObjectMeta.Namespace+".svc.cluster.local",
+			"svc.cluster.local",
+		}
+		netConfig.DNSOption = []string{"ndots:5"}
+	case corev1.DNSClusterFirst:
+		if !pod.Spec.HostNetwork {
+			netConfig.DNSServer = []net.IP{net.ParseIP("10.6.0.10")}
+			netConfig.DNSSearch = []string{
+				pod.ObjectMeta.Namespace+".svc.cluster.local",
+				"svc.cluster.local",
+			}
+			netConfig.DNSOption = []string{"ndots:5"}
+		}
+	case corev1.DNSDefault: // TODO
+	case corev1.DNSNone: // TODO
+	}
+
+	// TODO: all the port mappings?
+
 	creation, err := d.podman.PodCreate(ctx, podman.PodSpecGenerator{
-		// CniNetworks, DnsOption
-		// DnsSearch: []string{pod.ObjectMeta.Namespace+".svc.cluster.local."},
-		// DnsServer: []string{"10.6.0.10"}, // 10.8.0.131:53,10.8.0.131:53
 		PodBasicConfig: podman.PodBasicConfig{
 			Hostname: pod.ObjectMeta.Name,
 			Labels:   map[string]string{},
 			Name:     key,
+			SharedNamespaces: shareNs,
 		},
-		// TODO: Host network, Host ports
-		// TODO: share process namespace
+		PodNetworkConfig: netConfig,
 	})
 	if err != nil {
 		log.Println("pod create err", err)
 		return err
 	}
 	log.Printf("pod create %+v", creation)
+
+	// pod spec fields, incomplete
+	// TODO: volumes
+	// TODO: InitContainers
+	// TODO: EphemeralContainers
+	// TODO: RestartPolicy (complex)
+	// TODO: HostPID
+	// TODO: HostIPC
+	// TODO: SecurityContext
+	// TODO: ImagePullSecrets
+	// TODO: HostAliases
+	// TODO: DNSConfig (easy)
+	// TODO: SetHostnameAsFQDN (easy)
+
+	for _, conSpec := range pod.Spec.Containers {
+
+		conEnv := map[string]string{}
+		for _, envVar := range conSpec.Env {
+			if envVar.ValueFrom == nil {
+				conEnv[envVar.Name] = envVar.Value
+			} else {
+				log.Println("WARN:", key, conSpec.Name, "env", envVar.Name, "is dynamic!")
+				log.Printf("TODO: EnvVariable definition: %+v", envVar)
+				conEnv[envVar.Name] = "TODO"
+			}
+		}
+
+		var isSystemd string
+		if value, ok := pod.ObjectMeta.Annotations["vk.podman.io/systemd."+conSpec.Name]; ok {
+			isSystemd = value
+		}
+
+		conCreation, err := d.podman.ContainerCreate(ctx, &podman.SpecGenerator{
+			ContainerBasicConfig: podman.ContainerBasicConfig{
+				Name:     key+"_"+conSpec.Name,
+				Pod: creation.Id,
+				Entrypoint: conSpec.Command,
+				Command: conSpec.Args,
+				Env: conEnv,
+				Terminal: conSpec.TTY,
+				Stdin: conSpec.Stdin,
+				Labels:   map[string]string{
+					"k8s-name": conSpec.Name,
+					"k8s-type": "standard", // vs init or ephemeral
+				},
+				Annotations: map[string]string{},
+				// Annotations map[string]string `json:"annotations,omitempty"`
+				// StopSignal *syscall.Signal `json:"stop_signal,omitempty"`
+				// StopTimeout *uint `json:"stop_timeout,omitempty"`
+				LogConfiguration: &podman.LogConfig{
+					Driver: "k8s-file",
+				},
+				// RestartPolicy string `json:"restart_policy,omitempty"`
+				// RestartRetries *uint `json:"restart_tries,omitempty"`
+				// OCIRuntime string `json:"oci_runtime,omitempty"`
+				Systemd: isSystemd,
+				// Namespace string `json:"namespace,omitempty"`
+				// PidNS Namespace `json:"pidns,omitempty"`
+				// UtsNS Namespace `json:"utsns,omitempty"`
+				// Hostname string `json:"hostname,omitempty"`
+				// Sysctl map[string]string `json:"sysctl,omitempty"`
+				// Remove bool `json:"remove,omitempty"`
+				// PreserveFDs uint `json:"-"`
+			},
+			ContainerStorageConfig: podman.ContainerStorageConfig{
+				Image: conSpec.Image,
+				// ImageVolumeMode string `json:"image_volume_mode,omitempty"`
+				// Mounts []Mount `json:"mounts,omitempty"`
+				// Volumes []*NamedVolume `json:"volumes,omitempty"`
+				// Devices []LinuxDevice `json:"devices,omitempty"`
+				// IpcNS Namespace `json:"ipcns,omitempty"`
+				// ShmSize *int64 `json:"shm_size,omitempty"`
+				WorkDir: conSpec.WorkingDir,
+				// RootfsPropagation string `json:"rootfs_propagation,omitempty"`
+			},
+
+			// TODO: ContainerSecurityConfig
+			// TODO: ContainerResourceConfig
+		})
+		if err != nil {
+			log.Println("container create err", err)
+			return err
+		}
+		log.Printf("container create %+v", conCreation)
+
+
+		// container spec, exhasutive as of july 2020
+		// Name
+		// Image
+		// Command
+		// Args
+		// WorkingDir
+		// TODO: Ports
+		// TODO: EnvFrom
+		// Env
+		// TODO: Resources
+		// TODO: VolumeMounts
+		// TODO: VolumeDevices
+		// TODO: LivenessProbe
+		// TODO: ReadinessProbe
+		// TODO: StartupProbe
+		// TODO: Lifecycle
+		// TODO: TerminationMessagePath
+		// TODO: TerminationMessagePolicy
+		// TODO: ImagePullPolicy
+		// TODO: SecurityContext
+		// Stdin
+		// TODO: StdinOnce
+		// TTY
+	}
 
 	now := metav1.NewTime(time.Now())
 	pod.Status = corev1.PodStatus{
@@ -96,31 +240,70 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 	}
 	log.Printf("pod started %+v", msg)
 
-	pod.Status = corev1.PodStatus{
-		Phase:     corev1.PodRunning,
-		HostIP:    "1.2.3.4",
-		PodIP:     "5.6.7.8",
-		StartTime: &now,
-		Conditions: []corev1.PodCondition{
-			{
-				Type:   corev1.PodInitialized,
-				Status: corev1.ConditionTrue,
-			},
-			{
-				Type:   corev1.PodReady,
-				Status: corev1.ConditionTrue,
-			},
-			{
-				Type:   corev1.PodScheduled,
-				Status: corev1.ConditionTrue,
-			},
+	pod.Status.Phase = corev1.PodRunning
+	pod.Status.StartTime = &now
+
+	d.podNotifier(pod)
+
+	insp, err := d.podman.PodInspect(ctx, creation.Id)
+	if err != nil {
+		log.Println("pod insp err", err)
+		return err
+	}
+	log.Printf("pod insp %+v", insp)
+
+	infraInsp, err := d.podman.ContainerInspect(ctx, insp.InfraContainerID, false)
+	if err != nil {
+		log.Println("infra insp err", err)
+		return err
+	}
+	log.Printf("infra insp %+v", insp)
+
+	if !pod.Spec.HostNetwork {
+		if infraNetwork, ok := infraInsp.NetworkSettings.Networks["kube-pet"]; ok {
+			pod.Status.PodIP = infraNetwork.InspectBasicNetworkConfig.IPAddress
+		}
+	}
+	// pod.Status.HostIP =    "1.2.3.4" // TODO
+
+	containerInspects := make(map[string]*podman.InspectContainerData)
+	for _, conIds := range insp.Containers {
+		if conIds.ID == insp.InfraContainerID {
+			continue
+		}
+
+		conInsp, err := d.podman.ContainerInspect(ctx, conIds.ID, false)
+		if err != nil {
+			log.Println("con insp err", err)
+			continue
+		}
+		log.Printf("con insp %+v", insp)
+		containerInspects[conInsp.Config.Labels["k8s-name"]] = conInsp
+	}
+
+	pod.Status.Conditions = []corev1.PodCondition{
+		{
+			Type:   corev1.PodInitialized,
+			Status: corev1.ConditionTrue,
+		},
+		{
+			Type:   corev1.PodReady,
+			Status: corev1.ConditionTrue,
+		},
+		{
+			Type:   corev1.PodScheduled,
+			Status: corev1.ConditionTrue,
 		},
 	}
 	for _, cs := range pod.Status.ContainerStatuses {
-		cs.State = corev1.ContainerState{
-			Running: &corev1.ContainerStateRunning{
-				StartedAt: now,
-			},
+		if insp, ok := containerInspects[cs.Name]; ok {
+			cs.RestartCount = insp.RestartCount
+			cs.ContainerID = "podman://"+insp.ID
+			cs.State = corev1.ContainerState{
+				Running: &corev1.ContainerStateRunning{ // TODO: check!
+					StartedAt: now,
+				},
+			}
 		}
 	}
 
@@ -166,14 +349,18 @@ func (d *PodmanProvider) DeletePod(ctx context.Context, pod *corev1.Pod) error {
 		},
 	}
 	for _, cs := range pod.Status.ContainerStatuses {
+		prevState := cs.State
 		cs.State = corev1.ContainerState{
 			Terminated: &corev1.ContainerStateTerminated{
-				StartedAt:   cs.State.Running.StartedAt,
+				// StartedAt:   cs.State.Running.StartedAt,
 				FinishedAt:  now,
 				ExitCode:    420,
 				Reason:      "pod deleted",
 				ContainerID: "podman://" + msg.Id,
 			},
+		}
+		if prevState.Running != nil {
+			cs.State.Terminated.StartedAt = prevState.Running.StartedAt
 		}
 	}
 
