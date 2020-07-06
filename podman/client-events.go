@@ -10,7 +10,7 @@ import (
 
 // since, until, filters, stream
 func (pc *PodmanClient) StreamEvents(ctx context.Context) (<-chan Event, error) {
-	resp, err := pc.performGet(ctx, "/libpod/events")
+	resp, err := pc.performRawRequest(ctx, "GET", "/libpod/events")
 	if err != nil {
 		return nil, err
 	}

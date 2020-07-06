@@ -2,7 +2,6 @@ package podman
 
 import (
 	"context"
-	"encoding/json"
 )
 
 // AutoUpdate(ctx context.Context, options AutoUpdateOptions) (*AutoUpdateReport, []error)
@@ -35,13 +34,8 @@ import (
 
 // Version(ctx context.Context) (*SystemVersionReport, error)
 func (pc *PodmanClient) Version(ctx context.Context) (*DockerVersionReport, error) {
-	response, err := pc.performGet(ctx, "/libpod/version")
-	if err != nil {
-		return nil, err
-	}
-
 	var out DockerVersionReport
-	return &out, json.NewDecoder(response.Body).Decode(&out)
+	return &out, pc.performGet(ctx, "/libpod/version", &out)
 }
 
 type DockerVersionReport struct {

@@ -3,7 +3,6 @@ package podman
 import (
 	"time"
 	"context"
-	"encoding/json"
 )
 
 type PodActionReport struct {
@@ -13,15 +12,9 @@ type PodActionReport struct {
 
 // PodCreate(ctx context.Context, opts PodCreateOptions) (*PodCreateReport, error)
 func (pc *PodmanClient) PodCreate(ctx context.Context, spec PodSpecGenerator) (*PodCreateReport, error) {
-	response, err := pc.performPost(ctx, "/libpod/pods/create", spec)
-	if err != nil {
-		return nil, err
-	}
-
 	var out PodCreateReport
-	return &out, json.NewDecoder(response.Body).Decode(&out)
+	return &out, pc.performPost(ctx, "/libpod/pods/create", spec, &out)
 }
-
 type PodCreateReport struct {
 	Id string
 }
@@ -35,13 +28,8 @@ func (pc *PodmanClient) PodInspect(ctx context.Context, nameOrId string) (*Inspe
 		return nil, err
 	}
 
-	response, err := pc.performGet(ctx, "/libpod/pods/"+encoded+"/json")
-	if err != nil {
-		return nil, err
-	}
-
 	var out InspectPodData
-	return &out, json.NewDecoder(response.Body).Decode(&out)
+	return &out, pc.performGet(ctx, "/libpod/pods/"+encoded+"/json", &out)
 }
 type InspectPodData struct {
 	ID string `json:"Id"`
@@ -73,13 +61,8 @@ type InspectPodContainerInfo struct {
 
 // PodPs(ctx context.Context, options PodPSOptions) ([]*ListPodsReport, error)
 func (pc *PodmanClient) PodPs(ctx context.Context) ([]*ListPodsReport, error) {
-	response, err := pc.performGet(ctx, "/libpod/pods/json")
-	if err != nil {
-		return nil, err
-	}
-
 	var out []*ListPodsReport
-	return out, json.NewDecoder(response.Body).Decode(&out)
+	return out, pc.performGet(ctx, "/libpod/pods/json", &out)
 }
 
 type ListPodsReport struct {
@@ -106,13 +89,8 @@ func (pc *PodmanClient) PodRestart(ctx context.Context, nameOrId string) (*PodAc
 		return nil, err
 	}
 
-	response, err := pc.performPost(ctx, "/libpod/pods/"+encoded+"/restart", nil)
-	if err != nil {
-		return nil, err
-	}
-
 	var out PodActionReport
-	return &out, json.NewDecoder(response.Body).Decode(&out)
+	return &out, pc.performPost(ctx, "/libpod/pods/"+encoded+"/restart", nil, &out)
 }
 
 // PodRm(ctx context.Context, namesOrIds []string, options PodRmOptions) ([]*PodRmReport, error)
@@ -122,13 +100,8 @@ func (pc *PodmanClient) PodRm(ctx context.Context, nameOrId string) (*PodRmRepor
 		return nil, err
 	}
 
-	response, err := pc.performDelete(ctx, "/libpod/pods/"+encoded)
-	if err != nil {
-		return nil, err
-	}
-
 	var out PodRmReport
-	return &out, json.NewDecoder(response.Body).Decode(&out)
+	return &out, pc.performDelete(ctx, "/libpod/pods/"+encoded, &out)
 }
 
 type PodRmReport struct {
@@ -143,13 +116,8 @@ func (pc *PodmanClient) PodStart(ctx context.Context, nameOrId string) (*PodActi
 		return nil, err
 	}
 
-	response, err := pc.performPost(ctx, "/libpod/pods/"+encoded+"/start", nil)
-	if err != nil {
-		return nil, err
-	}
-
 	var out PodActionReport
-	return &out, json.NewDecoder(response.Body).Decode(&out)
+	return &out, pc.performPost(ctx, "/libpod/pods/"+encoded+"/start", nil, &out)
 }
 
 // PodStats(ctx context.Context, namesOrIds []string, options PodStatsOptions) ([]*PodStatsReport, error)
@@ -162,17 +130,18 @@ func (pc *PodmanClient) PodStop(ctx context.Context, nameOrId string) (*PodActio
 		return nil, err
 	}
 
-	response, err := pc.performPost(ctx, "/libpod/pods/"+encoded+"/stop", nil)
-	if err != nil {
-		return nil, err
-	} else if response.StatusCode == 304 {
-		return &PodActionReport{
-			Errs: []string{"Already Stopped"},
-		}, nil
-	}
-
 	var out PodActionReport
-	return &out, json.NewDecoder(response.Body).Decode(&out)
+	if err := pc.performPost(ctx, "/libpod/pods/"+encoded+"/stop", nil, &out); err != nil {
+		if err, ok := err.(*ApiError); ok {
+			if err.Status == 304 {
+				return &PodActionReport{
+					Errs: []string{"Already Stopped"},
+				}, nil
+			}
+		}
+		return nil, err
+	}
+	return &out, nil
 }
 
 // PodTop(ctx context.Context, options PodTopOptions) (*StringSliceReport, error)

@@ -3,7 +3,6 @@ package podman
 import (
 	"time"
 	"context"
-	"encoding/json"
 )
 
 
@@ -19,13 +18,8 @@ import (
 
 // ContainerCreate(ctx context.Context, s *specgen.SpecGenerator) (*ContainerCreateReport, error)
 func (pc *PodmanClient) ContainerCreate(ctx context.Context, spec *SpecGenerator) (*ContainerCreateReport, error) {
-	response, err := pc.performPost(ctx, "/libpod/containers/create", spec)
-	if err != nil {
-		return nil, err
-	}
-
 	var out ContainerCreateReport
-	return &out, json.NewDecoder(response.Body).Decode(&out)
+	return &out, pc.performPost(ctx, "/libpod/containers/create", spec, &out)
 }
 type ContainerCreateReport struct {
 	Id       string
@@ -55,13 +49,8 @@ func (pc *PodmanClient) ContainerInspect(ctx context.Context, nameOrId string, i
 		flags = "?size=true"
 	}
 
-	response, err := pc.performGet(ctx, "/libpod/containers/"+encoded+"/json"+flags)
-	if err != nil {
-		return nil, err
-	}
-
 	var out InspectContainerData
-	return &out, json.NewDecoder(response.Body).Decode(&out)
+	return &out, pc.performGet(ctx, "/libpod/containers/"+encoded+"/json"+flags, &out)
 }
 // these types are from https://github.com/containers/libpod/blob/957e7a533efe2d314640afac9d3b31cc752edd80/libpod/define/container_inspect.go
 type InspectContainerData struct {

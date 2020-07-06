@@ -2,7 +2,6 @@ package podman
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 )
 
@@ -22,13 +21,8 @@ import (
 
 // List(ctx context.Context, opts ImageListOptions) ([]*ImageSummary, error)
 func (pc *PodmanClient) List(ctx context.Context) ([]ImageSummary, error) {
-	response, err := pc.performGet(ctx, "/libpod/images/json")
-	if err != nil {
-		return nil, err
-	}
-
 	var out []ImageSummary
-	return out, json.NewDecoder(response.Body).Decode(&out)
+	return out, pc.performGet(ctx, "/libpod/images/json", &out)
 }
 
 type ImageSummary struct {
