@@ -3,8 +3,8 @@ package controller
 import (
 	"context"
 	"log"
-	"strings"
 	"net"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -27,6 +27,14 @@ type PodmanProvider struct {
 	podman      *podman.PodmanClient
 	pods        map[string]*corev1.Pod
 	podNotifier func(*corev1.Pod)
+}
+
+func NewPodmanProvider(podman *podman.PodmanClient) *PodmanProvider {
+	return &PodmanProvider{
+		podman:      podman,
+		pods:        make(map[string]*corev1.Pod),
+		podNotifier: func(*corev1.Pod) {},
+	}
 }
 
 // CreatePod takes a Kubernetes Pod and deploys it within the provider.
@@ -54,7 +62,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 	case corev1.DNSClusterFirstWithHostNet:
 		netConfig.DNSServer = []net.IP{net.ParseIP("10.6.0.10")}
 		netConfig.DNSSearch = []string{
-			pod.ObjectMeta.Namespace+".svc.cluster.local",
+			pod.ObjectMeta.Namespace + ".svc.cluster.local",
 			"svc.cluster.local",
 		}
 		netConfig.DNSOption = []string{"ndots:5"}
@@ -62,7 +70,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 		if !pod.Spec.HostNetwork {
 			netConfig.DNSServer = []net.IP{net.ParseIP("10.6.0.10")}
 			netConfig.DNSSearch = []string{
-				pod.ObjectMeta.Namespace+".svc.cluster.local",
+				pod.ObjectMeta.Namespace + ".svc.cluster.local",
 				"svc.cluster.local",
 			}
 			netConfig.DNSOption = []string{"ndots:5"}
@@ -75,9 +83,9 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 
 	creation, err := d.podman.PodCreate(ctx, podman.PodSpecGenerator{
 		PodBasicConfig: podman.PodBasicConfig{
-			Hostname: pod.ObjectMeta.Name,
-			Labels:   map[string]string{},
-			Name:     key,
+			Hostname:         pod.ObjectMeta.Name,
+			Labels:           map[string]string{},
+			Name:             key,
 			SharedNamespaces: shareNs,
 		},
 		PodNetworkConfig: netConfig,
@@ -121,14 +129,14 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 
 		conCreation, err := d.podman.ContainerCreate(ctx, &podman.SpecGenerator{
 			ContainerBasicConfig: podman.ContainerBasicConfig{
-				Name:     key+"_"+conSpec.Name,
-				Pod: creation.Id,
+				Name:       key + "_" + conSpec.Name,
+				Pod:        creation.Id,
 				Entrypoint: conSpec.Command,
-				Command: conSpec.Args,
-				Env: conEnv,
-				Terminal: conSpec.TTY,
-				Stdin: conSpec.Stdin,
-				Labels:   map[string]string{
+				Command:    conSpec.Args,
+				Env:        conEnv,
+				Terminal:   conSpec.TTY,
+				Stdin:      conSpec.Stdin,
+				Labels: map[string]string{
 					"k8s-name": conSpec.Name,
 					"k8s-type": "standard", // vs init or ephemeral
 				},
@@ -171,7 +179,6 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 			return err
 		}
 		log.Printf("container create %+v", conCreation)
-
 
 		// container spec, exhasutive as of july 2020
 		// Name
@@ -299,7 +306,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 	for _, cs := range pod.Status.ContainerStatuses {
 		if insp, ok := containerInspects[cs.Name]; ok {
 			cs.RestartCount = insp.RestartCount
-			cs.ContainerID = "podman://"+insp.ID
+			cs.ContainerID = "podman://" + insp.ID
 			cs.State = corev1.ContainerState{
 				Running: &corev1.ContainerStateRunning{ // TODO: check!
 					StartedAt: now,

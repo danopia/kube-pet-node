@@ -1,12 +1,12 @@
 package controller
 
 import (
-	"context"
-	"log"
-	"runtime"
-	"os"
 	"bufio"
+	"context"
 	"io/ioutil"
+	"log"
+	"os"
+	"runtime"
 	"strings"
 
 	"github.com/pbnjay/memory"
@@ -89,7 +89,7 @@ func (np *PetNodeProvider) NotifyNodeStatus(ctx context.Context, f func(*corev1.
 			"cpu":               *resource.NewScaledQuantity(int64(runtime.NumCPU()), 0),
 			"memory":            *resource.NewQuantity(int64(memory.TotalMemory()), resource.BinarySI),
 			"pods":              resource.MustParse("25"), // TODO
-			"ephemeral-storage": resource.MustParse("0"), // TODO
+			"ephemeral-storage": resource.MustParse("0"),  // TODO
 			"hugepages-2Mi":     resource.MustParse("0"),
 		},
 		Allocatable: corev1.ResourceList{
@@ -135,7 +135,7 @@ func (np *PetNodeProvider) NotifyNodeStatus(ctx context.Context, f func(*corev1.
 			KernelVersion:           np.conVersion.KernelVersion,
 			OSImage:                 osPrettyName,
 			ContainerRuntimeVersion: "podman://" + np.conVersion.Version,
-			KubeletVersion:          "kube-pet/v0.1.0", // TODO?
+			KubeletVersion:          "kube-pet/v0.1.0",     // TODO?
 			KubeProxyVersion:        "nftables-pet/v0.0.1", // TODO?
 			OperatingSystem:         np.conVersion.Os,
 		},
@@ -170,11 +170,10 @@ func (np *PetNodeProvider) NotifyNodeStatus(ctx context.Context, f func(*corev1.
 	log.Println("Node status updated!")
 }
 
-
 func findosPrettyName(fname string) (string, error) {
 	f, err := os.Open(fname[:])
 	if err != nil {
-		return "",err
+		return "", err
 	}
 	defer f.Close()
 
@@ -182,7 +181,7 @@ func findosPrettyName(fname string) (string, error) {
 	for scanner.Scan() {
 		text := scanner.Text()
 		if strings.HasPrefix(text, "PRETTY_NAME=") {
-			return text[13:len(text)-1], nil
+			return text[13 : len(text)-1], nil
 		}
 	}
 	return "", scanner.Err()

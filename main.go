@@ -1,7 +1,11 @@
 package main
 
 import (
+	"context"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/danopia/kube-pet-node/controller"
 	"github.com/danopia/kube-pet-node/podman"
@@ -16,6 +20,14 @@ import (
 // func (np *NP) NotifyNodeStatus(	)
 
 func main() {
+
+	ctx, cancel := context.WithCancel(context.Background())
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sig
+		cancel()
+	}()
 
 	// podman := podman.NewPodmanClient("unix", "/run/user/1000/podman/podman.sock")
 	podman := podman.NewPodmanClient("tcp", "127.0.0.1:8410")
@@ -32,7 +44,7 @@ func main() {
 		panic(err)
 	}
 
-	petNode, err := controller.NewPetNode("pet-berbox", podman, clientset)
+	petNode, err := controller.NewPetNode(ctx, "pet-berbox", podman, clientset)
 	if err != nil {
 		panic(err)
 	}

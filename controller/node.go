@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"path"
+	"time"
 
 	// "k8s.io/client-go/tools/clientcmd"
 	corev1 "k8s.io/api/core/v1"
@@ -40,13 +41,17 @@ type PetNode struct {
 	ServiceInformer   corev1informers.ServiceInformer
 }
 
-func NewPetNode(nodeName string, podman *podman.PodmanClient, kubernetes *kubernetes.Clientset) (*PetNode, error) {
+func NewPetNode(ctx context.Context, nodeName string, podman *podman.PodmanClient, kubernetes *kubernetes.Clientset) (*PetNode, error) {
 
 	pNode := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nodeName,
 			Labels: map[string]string{
 				"purpose": "pet",
+
+				"type":                   "virtual-kubelet",
+				"kubernetes.io/role":     "pet",
+				"kubernetes.io/hostname": nodeName,
 			},
 		},
 		Spec: corev1.NodeSpec{
@@ -66,7 +71,24 @@ func NewPetNode(nodeName string, podman *podman.PodmanClient, kubernetes *kubern
 		return nil, err
 	}
 
-	nodeRunner, err := node.NewNodeController(nodeProvider, pNode, kubernetes.CoreV1().Nodes(), node.WithNodeEnableLeaseV1Beta1(kubernetes.CoordinationV1beta1().Leases(corev1.NamespaceNodeLease), nil))
+	nodeRunner, err := node.NewNodeController(nodeProvider, pNode,
+		kubernetes.CoreV1().Nodes(),
+		node.WithNodeEnableLeaseV1Beta1(kubernetes.CoordinationV1beta1().Leases(corev1.NamespaceNodeLease), nil),
+		// node.WithNodeStatusUpdateErrorHandler(func(ctx context.Context, err error) error {
+		// 	if !k8serrors.IsNotFound(err) {
+		// 		return err
+		// 	}
+		// 	log.G(ctx).Debug("node not found")
+		// 	newNode := pNode.DeepCopy()
+		// 	newNode.ResourceVersion = ""
+		// 	_, err = client.CoreV1().Nodes().Create(newNode)
+		// 	if err != nil {
+		// 		return err
+		// 	}
+		// 	log.G(ctx).Debug("created new node")
+		// 	return nil
+		// }),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -76,19 +98,24 @@ func NewPetNode(nodeName string, podman *podman.PodmanClient, kubernetes *kubern
 	// Create a shared informer factory for Kubernetes pods in the current namespace (if specified) and scheduled to the current node.
 	podInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(
 		kubernetes,
-		60*1000000000,
-		// kubeinformers.WithNamespace(c.KubeNamespace),
+		1*time.Minute, // resync period
+		// kubeinformers.WithNamespace(""),
 		kubeinformers.WithTweakListOptions(func(options *metav1.ListOptions) {
 			options.FieldSelector = fields.OneTermEqualSelector("spec.nodeName", pNode.Name).String()
 		}))
 	podInformer := podInformerFactory.Core().V1().Pods()
 
 	// Create another shared informer factory for Kubernetes secrets and configmaps (not subject to any selectors).
-	scmInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(kubernetes, 60*1000000000)
+	scmInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(kubernetes, 1*time.Minute)
 	// Create a secret informer and a config map informer so we can pass their listers to the resource manager.
 	secretInformer := scmInformerFactory.Core().V1().Secrets()
 	configMapInformer := scmInformerFactory.Core().V1().ConfigMaps()
 	serviceInformer := scmInformerFactory.Core().V1().Services()
+
+	// rm, err := manager.NewResourceManager(podInformer.Lister(), secretInformer.Lister(), configMapInformer.Lister(), serviceInformer.Lister())
+	// if err != nil {
+	// 	return errors.Wrap(err, "could not create resource manager")
+	// }
 
 	eb := record.NewBroadcaster()
 	eb.StartLogging(func(a string, b ...interface{}) {
@@ -100,11 +127,7 @@ func NewPetNode(nodeName string, podman *podman.PodmanClient, kubernetes *kubern
 	// setup other things
 	podRunner, err := node.NewPodController(node.PodControllerConfig{
 		PodClient: kubernetes.CoreV1(),
-		Provider: &PodmanProvider{
-			podman:      podman,
-			pods:        make(map[string]*corev1.Pod),
-			podNotifier: func(*corev1.Pod) {},
-		},
+		Provider:  NewPodmanProvider(podman),
 
 		PodInformer:       podInformer,
 		EventRecorder:     eb.NewRecorder(scheme.Scheme, corev1.EventSource{Component: path.Join(pNode.Name, "pod-controller")}),
@@ -116,17 +139,17 @@ func NewPetNode(nodeName string, podman *podman.PodmanClient, kubernetes *kubern
 		return nil, err
 	}
 
-	go podInformerFactory.Start(context.TODO().Done())
-	go scmInformerFactory.Start(context.TODO().Done())
+	go podInformerFactory.Start(ctx.Done())
+	go scmInformerFactory.Start(ctx.Done())
 
-	go nodeRunner.Run(context.TODO())
-	// err = nodeRunner.Run(context.TODO())
+	go nodeRunner.Run(ctx)
+	// err = nodeRunner.Run(ctx)
 	// if err != nil {
 	// 	panic(err)
 	// }
 	// log.Println("RUnning...")
 
-	go podRunner.Run(context.TODO(), 1)
+	go podRunner.Run(ctx, 1) // number of sync workers
 	log.Println("Starting...")
 	<-nodeRunner.Ready()
 	log.Println("Node ready!")
