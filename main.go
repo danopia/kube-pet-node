@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/danopia/kube-pet-node/controller"
@@ -16,10 +18,17 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
-// type NP struct {}
-// func (np *NP) NotifyNodeStatus(	)
-
 func main() {
+
+	var nameFlag = flag.String("hostname", "", "name to use for the Kubernetes node, will get prefixes with 'pet-'")
+	var kubeconfFlag = flag.String("kubeconfig-path", "node-kubeconfig.yaml", "path to client config with a system:node clusterrolebinding")
+	var podmanSockFlag = flag.String("podman-socket", "tcp:127.0.0.1:8410", "podman socket location, either 'tcp:' or 'unix:' prefix")
+	_ = flag.String("controllers", "firewall,podman", "which features to run")
+	flag.Parse()
+
+	if *nameFlag == "" {
+		log.Fatalln("Hostname is required, try passing --hostname=<xyz>")
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	sig := make(chan os.Signal, 1)
@@ -29,11 +38,13 @@ func main() {
 		cancel()
 	}()
 
-	// podman := podman.NewPodmanClient("unix", "/run/user/1000/podman/podman.sock")
-	podman := podman.NewPodmanClient("tcp", "127.0.0.1:8410")
+	// unix:/run/user/1000/podman/podman.sock
+	// tcp:127.0.0.1:8410
+	podSockParts := strings.SplitN(*podmanSockFlag, ":", 2)
+	podman := podman.NewPodmanClient(podSockParts[0], podSockParts[1])
 
 	// use the current context in kubeconfig
-	config, err := clientcmd.BuildConfigFromFlags("", "node-kubeconfig.yaml")
+	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfFlag)
 	if err != nil {
 		panic(err)
 	}
@@ -44,7 +55,7 @@ func main() {
 		panic(err)
 	}
 
-	petNode, err := controller.NewPetNode(ctx, "pet-berbox", podman, clientset)
+	petNode, err := controller.NewPetNode(ctx, "pet-"+*nameFlag, podman, clientset)
 	if err != nil {
 		panic(err)
 	}
