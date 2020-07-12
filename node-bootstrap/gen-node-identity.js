@@ -42,3 +42,23 @@ console.log(YAML.stringify({
     namespace: `kube-system`,
   }],
 }));
+
+console.log('---')
+console.log(YAML.stringify({
+  apiVersion: 'rbac.authorization.k8s.io/v1beta1',
+  kind: 'ClusterRoleBinding',
+  metadata: {
+    name: `system:node-proxier:${nodeName}`,
+    labels,
+  },
+  roleRef: {
+    apiGroup: `rbac.authorization.k8s.io`,
+    kind: `ClusterRole`,
+    name: `system:node-proxier`,
+  },
+  subjects: [{
+    kind: `ServiceAccount`,
+    name: `node.${nodeName}`,
+    namespace: `kube-system`,
+  }],
+}));

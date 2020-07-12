@@ -23,6 +23,7 @@ import (
 
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
+	"github.com/danopia/kube-pet-node/controllers/firewall"
 	"github.com/danopia/kube-pet-node/podman"
 )
 
@@ -35,6 +36,7 @@ type PetNode struct {
 	Kubernetes        *kubernetes.Clientset
 	NodeRunner        *node.NodeController
 	PodRunner         *node.PodController
+	Firewall          *firewall.FirewallController
 	PodInformer       corev1informers.PodInformer
 	SecretInformer    corev1informers.SecretInformer
 	ConfigMapInformer corev1informers.ConfigMapInformer
@@ -111,6 +113,7 @@ func NewPetNode(ctx context.Context, nodeName string, podman *podman.PodmanClien
 	secretInformer := scmInformerFactory.Core().V1().Secrets()
 	configMapInformer := scmInformerFactory.Core().V1().ConfigMaps()
 	serviceInformer := scmInformerFactory.Core().V1().Services()
+	endpointsInformer := scmInformerFactory.Core().V1().Endpoints()
 
 	// rm, err := manager.NewResourceManager(podInformer.Lister(), secretInformer.Lister(), configMapInformer.Lister(), serviceInformer.Lister())
 	// if err != nil {
@@ -139,6 +142,9 @@ func NewPetNode(ctx context.Context, nodeName string, podman *podman.PodmanClien
 		return nil, err
 	}
 
+	firewall := firewall.NewFirewallController(serviceInformer, endpointsInformer)
+	go firewall.Run(ctx)
+
 	go podInformerFactory.Start(ctx.Done())
 	go scmInformerFactory.Start(ctx.Done())
 
@@ -161,6 +167,7 @@ func NewPetNode(ctx context.Context, nodeName string, podman *podman.PodmanClien
 
 		NodeRunner: nodeRunner,
 		PodRunner:  podRunner,
+		Firewall:   firewall,
 
 		PodInformer:       podInformer,
 		SecretInformer:    secretInformer,
