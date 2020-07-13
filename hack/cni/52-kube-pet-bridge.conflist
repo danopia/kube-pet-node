@@ -2,36 +2,32 @@
   "cniVersion": "0.4.0",
   "name": "kube-pet",
   "plugins": [
-    {
-      "type": "bridge",
+    { "type": "bridge",
       "bridge": "cni-kube-pet",
       "isGateway": true,
       "ipMasq": false,
-      "hairpinMode": true,
+      "hairpinMode": false,
       "ipam": {
         "type": "host-local",
-        "routes": [{ "dst": "0.0.0.0/0" }],
+        "routes": [
+          { "dst": "0.0.0.0/0" },
+          { "dst": "10.10.0.0/25", "comment":"https://github.com/containernetworking/plugins/issues/508" },
+          { "dst": "10.10.0.0/26" },
+          { "dst": "10.10.0.64/26 "}
+        ],
         "ranges": [
-          [
-            {
-              "subnet": "10.10.0.0/25",
-              "gateway": "10.10.0.1"
-            }
-          ]
+          [{ "subnet": "10.10.0.0/25", "gateway": "10.10.0.1" }],
         ]
       }
     },
-    {
-      "type": "portmap",
+    { "type": "portmap",
       "capabilities": {
         "portMappings": true
       }
     },
-    {
-      "type": "firewall"
+    { "type": "firewall"
     },
-    {
-      "type": "tuning"
+    { "type": "tuning"
     }
   ]
 }

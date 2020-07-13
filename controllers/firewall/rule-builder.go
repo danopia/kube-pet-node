@@ -123,6 +123,18 @@ func (rb *RuleBuilder) RejectAsPortUnreachable() *RuleBuilder {
 	return rb
 }
 
+func (rb *RuleBuilder) Accept() *RuleBuilder {
+	rb.exprs = append(rb.exprs,
+		// [ immediate reg 0 accept ]
+		&nftexpr.Verdict{
+			Kind: nftexpr.VerdictAccept,
+		},
+	)
+
+	rb.text.WriteString(" accept")
+	return rb
+}
+
 func (rb *RuleBuilder) TranslateIPv4Address(ip string) *RuleBuilder {
 	rb.exprs = append(rb.exprs,
 		// [ immediate reg 1 0x8700080a ]
@@ -225,6 +237,29 @@ func (rb *RuleBuilder) IsIpDestAddress(ip string) *RuleBuilder {
 	return rb
 }
 
+func (rb *RuleBuilder) IsIpSrcAddress(ip string) *RuleBuilder {
+	rb.exprs = append(rb.exprs,
+		// [ payload load 4b @ network header + 16 => reg 1 ]
+		&nftexpr.Payload{
+			DestRegister: 1,
+			Base:         nftexpr.PayloadBaseNetworkHeader,
+			Offset:       12,
+			Len:          4,
+		},
+		// [ cmp eq reg 1 0x4b0f060a ]
+		&nftexpr.Cmp{
+			Op:       nftexpr.CmpOpEq,
+			Register: 1,
+			Data:     parseIpForNft(ip),
+		},
+	)
+
+	rb.text.WriteString(" ip saddr ")
+	rb.text.WriteString(ip)
+	return rb
+}
+
+// call into another chain and jump back afterwards if it didn't have a verdict
 func (rb *RuleBuilder) JumpToChain(chain string) *RuleBuilder {
 	rb.exprs = append(rb.exprs,
 		// [ immediate reg 0 jump -> other-chain ]
@@ -236,6 +271,33 @@ func (rb *RuleBuilder) JumpToChain(chain string) *RuleBuilder {
 
 	rb.text.WriteString(" jump ")
 	rb.text.WriteString(chain)
+	return rb
+}
+
+// switch to another chain and don't come back afterwards
+// (still respect returning to any previous jumps)
+func (rb *RuleBuilder) GoToChain(chain string) *RuleBuilder {
+	rb.exprs = append(rb.exprs,
+		// [ immediate reg 0 goto -> other-chain ]
+		&nftexpr.Verdict{
+			Kind:  nftexpr.VerdictGoto,
+			Chain: chain,
+		},
+	)
+
+	rb.text.WriteString(" goto ")
+	rb.text.WriteString(chain)
+	return rb
+}
+
+// perform automatic source NAT
+func (rb *RuleBuilder) Masquerade() *RuleBuilder {
+	rb.exprs = append(rb.exprs,
+		// [ masq ]
+		&nftexpr.Masq{},
+	)
+
+	rb.text.WriteString(" masquerade")
 	return rb
 }
 

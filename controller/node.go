@@ -142,7 +142,7 @@ func NewPetNode(ctx context.Context, nodeName string, podman *podman.PodmanClien
 		return nil, err
 	}
 
-	firewall := firewall.NewFirewallController(serviceInformer, endpointsInformer)
+	firewall := firewall.NewFirewallController(pNode.Name, serviceInformer, endpointsInformer)
 	go firewall.Run(ctx)
 
 	go podInformerFactory.Start(ctx.Done())

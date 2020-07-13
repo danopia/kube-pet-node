@@ -18,14 +18,16 @@ import (
 )
 
 type FirewallController struct {
+	NodeName          string
 	ServiceInformer   corev1informers.ServiceInformer
 	EndpointsInformer corev1informers.EndpointsInformer
 	Debounce          func(func())
 	LatestConfigHash  []byte
 }
 
-func NewFirewallController(si corev1informers.ServiceInformer, ei corev1informers.EndpointsInformer) *FirewallController {
+func NewFirewallController(nodeName string, si corev1informers.ServiceInformer, ei corev1informers.EndpointsInformer) *FirewallController {
 	return &FirewallController{
+		NodeName:          nodeName,
 		ServiceInformer:   si,
 		EndpointsInformer: ei,
 		Debounce:          debounce.New(time.Second),
@@ -64,7 +66,12 @@ func (fc *FirewallController) Sync() {
 		log.Println("Firewall: Configuration changed, new hash:", hash)
 
 		if err := nft.Flush(); err != nil {
-			log.Println("Firewall: nftables error:", err)
+			if err.Error() == "Receive: netlink receive: recvmsg: no buffer space available" {
+				log.Println("Firewall: Kernel table updated :) - but we also got an ENOBUFS :(")
+				fc.LatestConfigHash = hash
+			} else {
+				log.Println("Firewall: nftables error:", err)
+			}
 		} else {
 			log.Println("Firewall: Kernel table updated :)")
 			fc.LatestConfigHash = hash
