@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"log"
+	"net"
 	"path"
 	"time"
 
@@ -43,7 +44,7 @@ type PetNode struct {
 	ServiceInformer   corev1informers.ServiceInformer
 }
 
-func NewPetNode(ctx context.Context, nodeName string, podman *podman.PodmanClient, kubernetes *kubernetes.Clientset, maxPods int) (*PetNode, error) {
+func NewPetNode(ctx context.Context, nodeName string, podman *podman.PodmanClient, kubernetes *kubernetes.Clientset, maxPods int, nodeIP net.IP) (*PetNode, error) {
 
 	pNode := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
@@ -68,7 +69,7 @@ func NewPetNode(ctx context.Context, nodeName string, podman *podman.PodmanClien
 		},
 	}
 
-	nodeProvider, err := NewPetNodeProvider(pNode, podman, maxPods)
+	nodeProvider, err := NewPetNodeProvider(pNode, podman, maxPods, nodeIP)
 	if err != nil {
 		return nil, err
 	}

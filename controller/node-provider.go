@@ -5,6 +5,7 @@ import (
 	"context"
 	"io/ioutil"
 	"log"
+	"net"
 	"os"
 	"runtime"
 	"strconv"
@@ -24,9 +25,10 @@ type PetNodeProvider struct {
 	podman     *podman.PodmanClient
 	conVersion *podman.DockerVersionReport
 	maxPods    resource.Quantity
+	nodeIP     net.IP
 }
 
-func NewPetNodeProvider(node *corev1.Node, podman *podman.PodmanClient, maxPods int) (*PetNodeProvider, error) {
+func NewPetNodeProvider(node *corev1.Node, podman *podman.PodmanClient, maxPods int, nodeIP net.IP) (*PetNodeProvider, error) {
 	conVersion, err := podman.Version(context.TODO())
 	if err != nil {
 		return nil, err
@@ -48,6 +50,7 @@ func NewPetNodeProvider(node *corev1.Node, podman *podman.PodmanClient, maxPods 
 		podman:     podman,
 		conVersion: conVersion,
 		maxPods:    resource.MustParse(strconv.Itoa(maxPods)),
+		nodeIP:     nodeIP,
 	}, nil
 }
 
@@ -149,13 +152,13 @@ func (np *PetNodeProvider) NotifyNodeStatus(ctx context.Context, f func(*corev1.
 			},
 			{
 				Type:    corev1.NodeInternalIP,
-				Address: "10.6.26.10",
+				Address: np.nodeIP.String(),
 			},
 			{
 				Type:    corev1.NodeInternalDNS,
 				Address: np.node.ObjectMeta.Name + ".local",
 			},
-			// {
+			// { // TODO: look up on da.gd/ip or something
 			// 	Type:    corev1.NodeExternalIP,
 			// 	Address: "35.222.199.140",
 			// },
