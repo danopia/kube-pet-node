@@ -43,7 +43,7 @@ type PetNode struct {
 	ServiceInformer   corev1informers.ServiceInformer
 }
 
-func NewPetNode(ctx context.Context, nodeName string, podman *podman.PodmanClient, kubernetes *kubernetes.Clientset) (*PetNode, error) {
+func NewPetNode(ctx context.Context, nodeName string, podman *podman.PodmanClient, kubernetes *kubernetes.Clientset, maxPods int) (*PetNode, error) {
 
 	pNode := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
@@ -68,7 +68,7 @@ func NewPetNode(ctx context.Context, nodeName string, podman *podman.PodmanClien
 		},
 	}
 
-	nodeProvider, err := NewPetNodeProvider(pNode, podman)
+	nodeProvider, err := NewPetNodeProvider(pNode, podman, maxPods)
 	if err != nil {
 		return nil, err
 	}
@@ -145,9 +145,6 @@ func NewPetNode(ctx context.Context, nodeName string, podman *podman.PodmanClien
 	firewall := firewall.NewFirewallController(pNode.Name, serviceInformer, endpointsInformer)
 	go firewall.Run(ctx)
 
-	go podInformerFactory.Start(ctx.Done())
-	go scmInformerFactory.Start(ctx.Done())
-
 	go nodeRunner.Run(ctx)
 	// err = nodeRunner.Run(ctx)
 	// if err != nil {
@@ -158,7 +155,10 @@ func NewPetNode(ctx context.Context, nodeName string, podman *podman.PodmanClien
 	go podRunner.Run(ctx, 1) // number of sync workers
 	log.Println("Starting...")
 	<-nodeRunner.Ready()
-	log.Println("Node ready!")
+	log.Println("Node runner ready")
+	podInformerFactory.Start(ctx.Done())
+	scmInformerFactory.Start(ctx.Done())
+	log.Println("Informers started")
 
 	return &PetNode{
 		NodeName:   nodeName,

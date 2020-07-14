@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/pbnjay/memory"
@@ -22,9 +23,10 @@ type PetNodeProvider struct {
 	node       *corev1.Node
 	podman     *podman.PodmanClient
 	conVersion *podman.DockerVersionReport
+	maxPods    resource.Quantity
 }
 
-func NewPetNodeProvider(node *corev1.Node, podman *podman.PodmanClient) (*PetNodeProvider, error) {
+func NewPetNodeProvider(node *corev1.Node, podman *podman.PodmanClient, maxPods int) (*PetNodeProvider, error) {
 	conVersion, err := podman.Version(context.TODO())
 	if err != nil {
 		return nil, err
@@ -45,6 +47,7 @@ func NewPetNodeProvider(node *corev1.Node, podman *podman.PodmanClient) (*PetNod
 		node:       node,
 		podman:     podman,
 		conVersion: conVersion,
+		maxPods:    resource.MustParse(strconv.Itoa(maxPods)),
 	}, nil
 }
 
@@ -88,14 +91,14 @@ func (np *PetNodeProvider) NotifyNodeStatus(ctx context.Context, f func(*corev1.
 		Capacity: corev1.ResourceList{
 			"cpu":               *resource.NewScaledQuantity(int64(runtime.NumCPU()), 0),
 			"memory":            *resource.NewQuantity(int64(memory.TotalMemory()), resource.BinarySI),
-			"pods":              resource.MustParse("25"), // TODO
-			"ephemeral-storage": resource.MustParse("0"),  // TODO
+			"pods":              np.maxPods,
+			"ephemeral-storage": resource.MustParse("0"), // TODO
 			"hugepages-2Mi":     resource.MustParse("0"),
 		},
 		Allocatable: corev1.ResourceList{
 			"cpu":               resource.MustParse("1000m"),
 			"memory":            resource.MustParse("1000Mi"),
-			"pods":              resource.MustParse("10"),
+			"pods":              np.maxPods,
 			"ephemeral-storage": resource.MustParse("0"),
 			"hugepages-2Mi":     resource.MustParse("0"),
 		},
@@ -156,6 +159,7 @@ func (np *PetNodeProvider) NotifyNodeStatus(ctx context.Context, f func(*corev1.
 			// 	Type:    corev1.NodeExternalIP,
 			// 	Address: "35.222.199.140",
 			// },
+			// also NodeExternalDNS
 		},
 	}
 

@@ -23,6 +23,7 @@ func main() {
 	var nameFlag = flag.String("hostname", "", "name to use for the Kubernetes node, will get prefixed with 'pet-'")
 	var kubeconfFlag = flag.String("kubeconfig-path", "node-kubeconfig.yaml", "path to client config with a system:node clusterrolebinding")
 	var podmanSockFlag = flag.String("podman-socket", "tcp:127.0.0.1:8410", "podman socket location, either 'tcp:' or 'unix:' prefix")
+	var maxPodsFlag = flag.Int("max-pods", 10, "number of pods this node should support. 0 effectively disables scheduling")
 	_ = flag.String("controllers", "firewall,podman", "which features to run")
 	flag.Parse()
 
@@ -69,7 +70,7 @@ func main() {
 		panic(err)
 	}
 
-	petNode, err := controller.NewPetNode(ctx, nodeName, podman, clientset)
+	petNode, err := controller.NewPetNode(ctx, nodeName, podman, clientset, *maxPodsFlag)
 	if err != nil {
 		panic(err)
 	}
