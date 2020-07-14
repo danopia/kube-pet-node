@@ -20,14 +20,28 @@ import (
 
 func main() {
 
-	var nameFlag = flag.String("hostname", "", "name to use for the Kubernetes node, will get prefixes with 'pet-'")
+	var nameFlag = flag.String("hostname", "", "name to use for the Kubernetes node, will get prefixed with 'pet-'")
 	var kubeconfFlag = flag.String("kubeconfig-path", "node-kubeconfig.yaml", "path to client config with a system:node clusterrolebinding")
 	var podmanSockFlag = flag.String("podman-socket", "tcp:127.0.0.1:8410", "podman socket location, either 'tcp:' or 'unix:' prefix")
 	_ = flag.String("controllers", "firewall,podman", "which features to run")
 	flag.Parse()
 
-	if *nameFlag == "" {
-		log.Fatalln("Hostname is required, try passing --hostname=<xyz>")
+	var nodeName string
+
+	// read the kubeconfig ourselves to see what our user is called in it
+	kubeConfig, err := (&clientcmd.ClientConfigLoadingRules{ExplicitPath: *kubeconfFlag}).Load()
+	if err != nil {
+		panic(err)
+	}
+	kubeCtx := kubeConfig.Contexts[kubeConfig.CurrentContext]
+	if strings.HasPrefix(kubeCtx.AuthInfo, "system:node:") {
+		nodeName = strings.TrimPrefix(kubeCtx.AuthInfo, "system:node:")
+	}
+	if *nameFlag != "" {
+		nodeName = "pet-" + *nameFlag
+	}
+	if nodeName == "" {
+		log.Fatalln("Hostname is required and also couldn't be detected from the kubeconfig, try passing --hostname=<xyz>")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -55,7 +69,7 @@ func main() {
 		panic(err)
 	}
 
-	petNode, err := controller.NewPetNode(ctx, "pet-"+*nameFlag, podman, clientset)
+	petNode, err := controller.NewPetNode(ctx, nodeName, podman, clientset)
 	if err != nil {
 		panic(err)
 	}
