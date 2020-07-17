@@ -1,0 +1,26 @@
+{
+  "name": "kube-pet-net",
+  "cniVersion": "0.4.0",
+  "plugins": [
+    {
+      "type": "ptp",
+      "mtu": 1460,
+      "ipam": {
+        "type": "host-local",
+        "subnet": "10.10.0.0/25",
+        "routes": [
+          {
+            "dst": "0.0.0.0/0"
+          }
+        ]
+      }
+    },
+    {
+      "type": "portmap",
+      "capabilities": {
+        "portMappings": true
+      },
+      "noSnat": true
+    }
+  ]
+}

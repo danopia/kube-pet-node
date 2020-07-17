@@ -42,7 +42,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 	key := pod.ObjectMeta.Namespace + "_" + pod.ObjectMeta.Name
 
 	log.Println("create", key)
-	log.Printf("create pod %+v", pod)
+	// log.Printf("create pod %+v", pod)
 	d.pods[key] = pod
 
 	shareNs := []string{"ipc", "net", "uts"}
@@ -55,7 +55,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 		netConfig.NetNS.NSMode = "host"
 	} else {
 		netConfig.NetNS.NSMode = "bridge"
-		netConfig.CNINetworks = []string{"kube-pet"}
+		netConfig.CNINetworks = []string{"kube-pet-net"}
 	}
 
 	switch pod.Spec.DNSPolicy {
@@ -268,7 +268,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 	log.Printf("infra insp %+v", insp)
 
 	if !pod.Spec.HostNetwork {
-		if infraNetwork, ok := infraInsp.NetworkSettings.Networks["kube-pet"]; ok {
+		if infraNetwork, ok := infraInsp.NetworkSettings.Networks["kube-pet-net"]; ok {
 			pod.Status.PodIP = infraNetwork.InspectBasicNetworkConfig.IPAddress
 		}
 	}
@@ -312,6 +312,8 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 					StartedAt: now,
 				},
 			}
+		} else {
+			log.Println("Warn: failed to match container", cs.Name, "from", containerInspects)
 		}
 	}
 
