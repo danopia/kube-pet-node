@@ -25,13 +25,15 @@ import (
 
 type PodmanProvider struct {
 	podman      *podman.PodmanClient
+	cniNet      string
 	pods        map[string]*corev1.Pod
 	podNotifier func(*corev1.Pod)
 }
 
-func NewPodmanProvider(podman *podman.PodmanClient) *PodmanProvider {
+func NewPodmanProvider(podman *podman.PodmanClient, cniNet string) *PodmanProvider {
 	return &PodmanProvider{
 		podman:      podman,
+		cniNet:      cniNet,
 		pods:        make(map[string]*corev1.Pod),
 		podNotifier: func(*corev1.Pod) {},
 	}
@@ -55,7 +57,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 		netConfig.NetNS.NSMode = "host"
 	} else {
 		netConfig.NetNS.NSMode = "bridge"
-		netConfig.CNINetworks = []string{"kube-pet-net"}
+		netConfig.CNINetworks = []string{d.cniNet}
 	}
 
 	switch pod.Spec.DNSPolicy {
@@ -268,7 +270,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 	log.Printf("infra insp %+v", insp)
 
 	if !pod.Spec.HostNetwork {
-		if infraNetwork, ok := infraInsp.NetworkSettings.Networks["kube-pet-net"]; ok {
+		if infraNetwork, ok := infraInsp.NetworkSettings.Networks[d.cniNet]; ok {
 			pod.Status.PodIP = infraNetwork.InspectBasicNetworkConfig.IPAddress
 		}
 	}

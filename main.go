@@ -25,6 +25,7 @@ func main() {
 	var kubeconfFlag = flag.String("kubeconfig-path", "node-kubeconfig.yaml", "path to client config with a system:node clusterrolebinding")
 	var podmanSockFlag = flag.String("podman-socket", "tcp:127.0.0.1:8410", "podman socket location, either 'tcp:' or 'unix:' prefix")
 	var vpnIfaceFlag = flag.String("vpn-iface", "wg0", "network interface which the other cluster nodes and pods are available on")
+	var cniNetFlag = flag.String("cni-net", "kube-pet-net", "CNI network which provides local pods with networking and addresses")
 	var maxPodsFlag = flag.Int("max-pods", 10, "number of pods this node should support. 0 effectively disables scheduling")
 	_ = flag.String("controllers", "firewall,podman", "which features to run")
 	flag.Parse()
@@ -61,7 +62,7 @@ func main() {
 	var nodeIP net.IP
 	for _, addr := range vpnAddrs {
 		if net, ok := addr.(*net.IPNet); ok {
-			log.Println(net, net.IP.IsGlobalUnicast())
+			// log.Println(net, net.IP.IsGlobalUnicast())
 			if net.IP.IsGlobalUnicast() {
 				ones, bits := net.Mask.Size()
 				if ones == bits {
@@ -76,14 +77,6 @@ func main() {
 		}
 	}
 	log.Println("Node IP:", nodeIP)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sig
-		cancel()
-	}()
 
 	// unix:/run/user/1000/podman/podman.sock
 	// tcp:127.0.0.1:8410
@@ -102,7 +95,42 @@ func main() {
 		panic(err)
 	}
 
-	petNode, err := controller.NewPetNode(ctx, nodeName, podman, clientset, *maxPodsFlag, nodeIP)
+	// actually set up our lifespan now that we've loaded enough deps
+	ctx, cancel := context.WithCancel(context.Background())
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sig
+		cancel()
+	}()
+
+	var podNets []net.IPNet
+	cniNetworks, err := podman.NetworkInspect(ctx, *cniNetFlag)
+	if err != nil {
+		panic(err)
+	}
+	for _, cniNetwork := range cniNetworks {
+		for _, plugin := range cniNetwork.Plugins {
+			if plugin.Ipam != nil {
+				// log.Printf("%+v", plugin.Ipam)
+				if plugin.Ipam.Subnet != "" {
+					_, ipn, err := net.ParseCIDR(plugin.Ipam.Subnet)
+					if err != nil {
+						panic(err)
+					}
+					podNets = append(podNets, *ipn)
+				} else {
+					log.Println("TODO: cni plugin IPAM without a Subnet")
+				}
+			}
+		}
+	}
+	if len(podNets) < 1 {
+		log.Fatalln("I couldn't discover any pod networks! How am I supposed to run pods?")
+	}
+	log.Println("Pod networks:", podNets)
+
+	petNode, err := controller.NewPetNode(ctx, nodeName, podman, clientset, *maxPodsFlag, nodeIP, podNets, *cniNetFlag)
 	if err != nil {
 		panic(err)
 	}

@@ -44,7 +44,12 @@ type PetNode struct {
 	ServiceInformer   corev1informers.ServiceInformer
 }
 
-func NewPetNode(ctx context.Context, nodeName string, podman *podman.PodmanClient, kubernetes *kubernetes.Clientset, maxPods int, nodeIP net.IP) (*PetNode, error) {
+func NewPetNode(ctx context.Context, nodeName string, podman *podman.PodmanClient, kubernetes *kubernetes.Clientset, maxPods int, nodeIP net.IP, podNets []net.IPNet, cniNet string) (*PetNode, error) {
+
+	podCIDRs := make([]string, len(podNets))
+	for idx, podNet := range podNets {
+		podCIDRs[idx] = (&podNet).String()
+	}
 
 	pNode := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
@@ -58,8 +63,8 @@ func NewPetNode(ctx context.Context, nodeName string, podman *podman.PodmanClien
 			},
 		},
 		Spec: corev1.NodeSpec{
-			PodCIDR:    "10.10.0.0/25", // TODO
-			PodCIDRs:   []string{"10.10.0.0/25"},
+			PodCIDR:    podCIDRs[0],
+			PodCIDRs:   podCIDRs,
 			ProviderID: "pet://" + nodeName,
 			Taints: []corev1.Taint{{
 				Key:    "kubernetes.io/pet-node",
@@ -131,7 +136,7 @@ func NewPetNode(ctx context.Context, nodeName string, podman *podman.PodmanClien
 	// setup other things
 	podRunner, err := node.NewPodController(node.PodControllerConfig{
 		PodClient: kubernetes.CoreV1(),
-		Provider:  NewPodmanProvider(podman),
+		Provider:  NewPodmanProvider(podman, cniNet),
 
 		PodInformer:       podInformer,
 		EventRecorder:     eb.NewRecorder(scheme.Scheme, corev1.EventSource{Component: path.Join(pNode.Name, "pod-controller")}),
