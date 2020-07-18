@@ -22,32 +22,14 @@ import (
 // the status and health for our Kubernetes Node object.
 type PetNodeProvider struct {
 	node       *corev1.Node
-	podman     *podman.PodmanClient
 	conVersion *podman.DockerVersionReport
 	maxPods    resource.Quantity
 	nodeIP     net.IP
 }
 
-func NewPetNodeProvider(node *corev1.Node, podman *podman.PodmanClient, maxPods int, nodeIP net.IP) (*PetNodeProvider, error) {
-	conVersion, err := podman.Version(context.TODO())
-	if err != nil {
-		return nil, err
-	}
-
-	eventStream, err := podman.StreamEvents(context.TODO())
-	if err != nil {
-		return nil, err
-	}
-	go func() {
-		for evt := range eventStream {
-			log.Printf("Event: %+v", evt)
-		}
-		log.Println("No more events")
-	}()
-
+func NewPetNodeProvider(node *corev1.Node, conVersion *podman.DockerVersionReport, maxPods int, nodeIP net.IP) (*PetNodeProvider, error) {
 	return &PetNodeProvider{
 		node:       node,
-		podman:     podman,
 		conVersion: conVersion,
 		maxPods:    resource.MustParse(strconv.Itoa(maxPods)),
 		nodeIP:     nodeIP,
@@ -61,17 +43,18 @@ func (np *PetNodeProvider) Ping(ctx context.Context) error {
 func (np *PetNodeProvider) NotifyNodeStatus(ctx context.Context, f func(*corev1.Node)) {
 	log.Println("Building node status...")
 
-	localImages, err := np.podman.List(ctx)
-	if err != nil {
-		return //nil, err
-	}
+	// TODO: sorting, top 25
+	// localImages, err := np.podman.List(ctx)
+	// if err != nil {
+	// 	return //nil, err
+	// }
 	var localImagesMapped []corev1.ContainerImage
-	for _, img := range localImages {
-		localImagesMapped = append(localImagesMapped, corev1.ContainerImage{
-			Names:     img.Names,
-			SizeBytes: img.Size,
-		})
-	}
+	// for _, img := range localImages {
+	// 	localImagesMapped = append(localImagesMapped, corev1.ContainerImage{
+	// 		Names:     img.Names,
+	// 		SizeBytes: img.Size,
+	// 	})
+	// }
 
 	machineId, err := ioutil.ReadFile("/etc/machine-id")
 	if err != nil {

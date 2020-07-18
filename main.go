@@ -12,6 +12,7 @@ import (
 
 	"github.com/danopia/kube-pet-node/controller"
 	"github.com/danopia/kube-pet-node/podman"
+	"github.com/danopia/kube-pet-node/controllers/pods"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -83,6 +84,11 @@ func main() {
 	podSockParts := strings.SplitN(*podmanSockFlag, ":", 2)
 	podman := podman.NewPodmanClient(podSockParts[0], podSockParts[1])
 
+	podStorage, err := pods.NewPodSpecStorage()
+	if err != nil {
+		panic(err)
+	}
+
 	// use the current context in kubeconfig
 	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfFlag)
 	if err != nil {
@@ -104,6 +110,13 @@ func main() {
 		cancel()
 	}()
 
+	// sync our local pod info sources
+	podManager, err := pods.NewPodManager(podman, podStorage)
+	if err != nil {
+		panic(err)
+	}
+
+	// discover CIDRs that pods can use
 	var podNets []net.IPNet
 	cniNetworks, err := podman.NetworkInspect(ctx, *cniNetFlag)
 	if err != nil {
@@ -130,7 +143,8 @@ func main() {
 	}
 	log.Println("Pod networks:", podNets)
 
-	petNode, err := controller.NewPetNode(ctx, nodeName, podman, clientset, *maxPodsFlag, nodeIP, podNets, *cniNetFlag)
+	// construct the node
+	petNode, err := controller.NewPetNode(ctx, nodeName, podManager, clientset, *maxPodsFlag, nodeIP, podNets, *cniNetFlag)
 	if err != nil {
 		panic(err)
 	}

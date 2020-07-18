@@ -5,25 +5,39 @@ Proof of Concept
 ```
 dan@penguin ~> kubectl get nodes
 NAME                               STATUS   ROLES    AGE     VERSION
-laxbox                             Ready    <none>   11h     metal/v0.1.0
-atlbox                             Ready    <none>   45m     metal/v0.1.0
-gke-dust-persist3-190b8935-jvph    Ready    <none>   89d     v1.16.8-gke.15
-gke-dust-volatile1-b331c9e9-fk37   Ready    <none>   2d16h   v1.16.8-gke.15
+pet-laxbox                         Ready    pet      11h     metal/v0.1.0
+pet-atlbox                         Ready    pet      45m     metal/v0.1.0
+gke-dust-persist3-190b8935-jvph    Ready    app      89d     v1.16.8-gke.15
+gke-dust-volatile1-b331c9e9-fk37   Ready    app      2d16h   v1.16.8-gke.15
 ```
 
-The concept is taking a managed cloud-based control plane and adding external bare-metal servers to it. I'm developing against a free GKE control plane and
+The concept is taking a managed cloud-based control plane and adding external bare-metal servers to it to be maintained as pets. I'm developing against a free GKE control plane using a Public control plane and Alias IP pod networking.
+
+## goalposts
+I'm just tryina run some high-resource stuff out of the cloud so it's cheaper.
+
+### goals
+* run reasonably sane Kubernetes pods
+* provide container exec, logs, and metrics
+* expose static pod representing the host system (host exec & dmesg logs)
+* emit Event resources just like kubelet
+* create CRDs to observe and maybe manipulate hardware devices (disk drives, TV tuners, etc)
+
+### anti goals
+* not matching container lifecycle (ok to restart a container instead of replacing each time)
+* not feature compatible with kube-proxy (e.g. completely ignoring NodePort/LoadBalancer)
 
 ## deps
 
-Current plans are to use all of these programs on the pet node:
+Current plans are to use all of these programs on the pet node, though none are mission critical to have.
 
-* wireguard - tunnelling between the 'real' cluster and the pet node
-* nftables (via [library](https://github.com/google/nftables)) - configure traffic [for ClusterIP services](https://wiki.nftables.org/wiki-nftables/index.php/Load_balancing#Round_Robin), maybe also network policy
-* podman (via new REST API in 2.x) - run 'pods' on the host (similar to docker, but with its own pod concept)
+* wireguard - tunnelling between the 'real' cluster and the pet node - you need some sort of networking for pods to talk properly, can be another VPN though
+* nftables (via [library](https://github.com/google/nftables)) - configure traffic [for ClusterIP services](https://wiki.nftables.org/wiki-nftables/index.php/Load_balancing#Round_Robin), maybe also network policy - cluster IPs won't exist without nftables
+* podman (via REST API, new in 2.x) - run 'pods' on the host (similar to docker, but with its own pod concept) - required to run pods
 
-and also have support for these extras:
+and also have support for these extras later on:
 
-* zfs - report health and status of storage pools as a CRD, also probably allocation
+* zfs - report health and status of storage pools as a CRD, also probably volume provisioning
 * smartctl - report health of storage devices as a CRD
 * systemd - used for scheduling pods and tunnels for server boots
   * goal of the system being able to come up and serve Internet apps without kubernetes/kube-pet operational

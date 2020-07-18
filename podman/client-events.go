@@ -1,11 +1,11 @@
 package podman
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"io"
 	"log"
-	"bufio"
-	"encoding/json"
 )
 
 // since, until, filters, stream
@@ -58,7 +58,7 @@ type Event struct {
 	Type   string // pod, container, daemon, image, network, plugin, volume, service, node, secret, config
 	Action string // pull, create, init, start, remove,
 	Actor  EventActor
-	Scope  string `json:"scope,omitempty"`	// Engine events are "local". Cluster events are "swarm".
+	Scope  string `json:"scope,omitempty"` // Engine events are "local". Cluster events are "swarm".
 
 	Time     int64 `json:"time,omitempty"`
 	TimeNano int64 `json:"timeNano,omitempty"`

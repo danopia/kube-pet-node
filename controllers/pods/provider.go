@@ -1,10 +1,9 @@
-package controller
+package pods
 
 import (
 	"context"
 	"log"
 	"net"
-	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -18,193 +17,54 @@ import (
 	// "k8s.io/client-go/kubernetes/scheme"
 	// "k8s.io/client-go/tools/record"
 	// "github.com/virtual-kubelet/virtual-kubelet/node"
-	// // "github.com/virtual-kubelet/virtual-kubelet/log"
+	// // "github.com/vi	rtual-kubelet/virtual-kubelet/log"
 
 	"github.com/danopia/kube-pet-node/podman"
 )
 
 type PodmanProvider struct {
 	podman      *podman.PodmanClient
+	manager *PodManager
 	cniNet      string
-	pods        map[string]*corev1.Pod
+	// pods        map[string]*corev1.Pod
 	podNotifier func(*corev1.Pod)
+	// specStorage *PodSpecStorage
 }
 
-func NewPodmanProvider(podman *podman.PodmanClient, cniNet string) *PodmanProvider {
+func NewPodmanProvider(podManager *PodManager, cniNet string) *PodmanProvider {
 	return &PodmanProvider{
-		podman:      podman,
+		podman:      podManager.podman,
+		manager: podManager,
 		cniNet:      cniNet,
-		pods:        make(map[string]*corev1.Pod),
+		// pods:        make(map[string]*corev1.Pod),
 		podNotifier: func(*corev1.Pod) {},
+		// specStorage: specStorage,
 	}
 }
 
 // CreatePod takes a Kubernetes Pod and deploys it within the provider.
 func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
-	key := pod.ObjectMeta.Namespace + "_" + pod.ObjectMeta.Name
-
-	log.Println("create", key)
-	// log.Printf("create pod %+v", pod)
-	d.pods[key] = pod
-
-	shareNs := []string{"ipc", "net", "uts"}
-	if pod.Spec.ShareProcessNamespace != nil && *pod.Spec.ShareProcessNamespace {
-		shareNs = append(shareNs, "pid")
+	podCoord, err := d.manager.RegisterPod(pod)
+	if err != nil {
+		return err
 	}
+	log.Println("Pod", podCoord, "registered")
 
-	var netConfig podman.PodNetworkConfig
-	if pod.Spec.HostNetwork {
-		netConfig.NetNS.NSMode = "host"
-	} else {
-		netConfig.NetNS.NSMode = "bridge"
-		netConfig.CNINetworks = []string{d.cniNet}
-	}
-
-	switch pod.Spec.DNSPolicy {
-	case corev1.DNSClusterFirstWithHostNet:
-		netConfig.DNSServer = []net.IP{net.ParseIP("10.6.0.10")}
-		netConfig.DNSSearch = []string{
-			pod.ObjectMeta.Namespace + ".svc.cluster.local",
-			"svc.cluster.local",
-		}
-		netConfig.DNSOption = []string{"ndots:5"}
-	case corev1.DNSClusterFirst:
-		if !pod.Spec.HostNetwork {
-			netConfig.DNSServer = []net.IP{net.ParseIP("10.6.0.10")}
-			netConfig.DNSSearch = []string{
-				pod.ObjectMeta.Namespace + ".svc.cluster.local",
-				"svc.cluster.local",
-			}
-			netConfig.DNSOption = []string{"ndots:5"}
-		}
-	case corev1.DNSDefault: // TODO
-	case corev1.DNSNone: // TODO
-	}
-
-	// TODO: all the port mappings?
-
-	creation, err := d.podman.PodCreate(ctx, podman.PodSpecGenerator{
-		PodBasicConfig: podman.PodBasicConfig{
-			Hostname:         pod.ObjectMeta.Name,
-			Labels:           map[string]string{},
-			Name:             key,
-			SharedNamespaces: shareNs,
-		},
-		PodNetworkConfig: netConfig,
-	})
+	dnsServer := net.ParseIP("10.6.0.10") // TODO
+	creation, err := d.podman.PodCreate(ctx, ConvertPodConfig(pod, dnsServer, d.cniNet))
 	if err != nil {
 		log.Println("pod create err", err)
 		return err
 	}
 	log.Printf("pod create %+v", creation)
 
-	// pod spec fields, incomplete
-	// TODO: volumes
-	// TODO: InitContainers
-	// TODO: EphemeralContainers
-	// TODO: RestartPolicy (complex)
-	// TODO: HostPID
-	// TODO: HostIPC
-	// TODO: SecurityContext
-	// TODO: ImagePullSecrets
-	// TODO: HostAliases
-	// TODO: DNSConfig (easy)
-	// TODO: SetHostnameAsFQDN (easy)
-
 	for _, conSpec := range pod.Spec.Containers {
-
-		conEnv := map[string]string{}
-		for _, envVar := range conSpec.Env {
-			if envVar.ValueFrom == nil {
-				conEnv[envVar.Name] = envVar.Value
-			} else {
-				log.Println("WARN:", key, conSpec.Name, "env", envVar.Name, "is dynamic!")
-				log.Printf("TODO: EnvVariable definition: %+v", envVar)
-				conEnv[envVar.Name] = "TODO"
-			}
-		}
-
-		var isSystemd string
-		if value, ok := pod.ObjectMeta.Annotations["vk.podman.io/systemd."+conSpec.Name]; ok {
-			isSystemd = value
-		}
-
-		conCreation, err := d.podman.ContainerCreate(ctx, &podman.SpecGenerator{
-			ContainerBasicConfig: podman.ContainerBasicConfig{
-				Name:       key + "_" + conSpec.Name,
-				Pod:        creation.Id,
-				Entrypoint: conSpec.Command,
-				Command:    conSpec.Args,
-				Env:        conEnv,
-				Terminal:   conSpec.TTY,
-				Stdin:      conSpec.Stdin,
-				Labels: map[string]string{
-					"k8s-name": conSpec.Name,
-					"k8s-type": "standard", // vs init or ephemeral
-				},
-				Annotations: map[string]string{},
-				// Annotations map[string]string `json:"annotations,omitempty"`
-				// StopSignal *syscall.Signal `json:"stop_signal,omitempty"`
-				// StopTimeout *uint `json:"stop_timeout,omitempty"`
-				LogConfiguration: &podman.LogConfig{
-					Driver: "k8s-file",
-				},
-				// RestartPolicy string `json:"restart_policy,omitempty"`
-				// RestartRetries *uint `json:"restart_tries,omitempty"`
-				// OCIRuntime string `json:"oci_runtime,omitempty"`
-				Systemd: isSystemd,
-				// Namespace string `json:"namespace,omitempty"`
-				// PidNS Namespace `json:"pidns,omitempty"`
-				// UtsNS Namespace `json:"utsns,omitempty"`
-				// Hostname string `json:"hostname,omitempty"`
-				// Sysctl map[string]string `json:"sysctl,omitempty"`
-				// Remove bool `json:"remove,omitempty"`
-				// PreserveFDs uint `json:"-"`
-			},
-			ContainerStorageConfig: podman.ContainerStorageConfig{
-				Image: conSpec.Image,
-				// ImageVolumeMode string `json:"image_volume_mode,omitempty"`
-				// Mounts []Mount `json:"mounts,omitempty"`
-				// Volumes []*NamedVolume `json:"volumes,omitempty"`
-				// Devices []LinuxDevice `json:"devices,omitempty"`
-				// IpcNS Namespace `json:"ipcns,omitempty"`
-				// ShmSize *int64 `json:"shm_size,omitempty"`
-				WorkDir: conSpec.WorkingDir,
-				// RootfsPropagation string `json:"rootfs_propagation,omitempty"`
-			},
-
-			// TODO: ContainerSecurityConfig
-			// TODO: ContainerResourceConfig
-		})
+		conCreation, err := d.podman.ContainerCreate(ctx, ConvertContainerConfig(pod, &conSpec, creation.Id))
 		if err != nil {
 			log.Println("container create err", err)
 			return err
 		}
 		log.Printf("container create %+v", conCreation)
-
-		// container spec, exhasutive as of july 2020
-		// Name
-		// Image
-		// Command
-		// Args
-		// WorkingDir
-		// TODO: Ports
-		// TODO: EnvFrom
-		// Env
-		// TODO: Resources
-		// TODO: VolumeMounts
-		// TODO: VolumeDevices
-		// TODO: LivenessProbe
-		// TODO: ReadinessProbe
-		// TODO: StartupProbe
-		// TODO: Lifecycle
-		// TODO: TerminationMessagePath
-		// TODO: TerminationMessagePolicy
-		// TODO: ImagePullPolicy
-		// TODO: SecurityContext
-		// Stdin
-		// TODO: StdinOnce
-		// TTY
 	}
 
 	now := metav1.NewTime(time.Now())
@@ -242,6 +102,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 	}
 
 	d.podNotifier(pod)
+	d.manager.RegisterPod(pod)
 
 	msg, err := d.podman.PodStart(ctx, creation.Id)
 	if err != nil {
@@ -254,6 +115,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 	pod.Status.StartTime = &now
 
 	d.podNotifier(pod)
+	d.manager.RegisterPod(pod)
 
 	insp, err := d.podman.PodInspect(ctx, creation.Id)
 	if err != nil {
@@ -320,6 +182,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 	}
 
 	d.podNotifier(pod)
+	d.manager.RegisterPod(pod)
 
 	return nil
 }
@@ -378,9 +241,13 @@ func (d *PodmanProvider) DeletePod(ctx context.Context, pod *corev1.Pod) error {
 
 	d.podNotifier(pod)
 
-	delete(d.pods, key)
+	err = d.manager.UnregisterPod(PodCoord{pod.ObjectMeta.Namespace, pod.ObjectMeta.Name})
+	if err != nil {
+		log.Println("pod unreg err", err)
+		return err
+	}
 
-	rmMsg, err := d.podman.PodRm(ctx, key)
+	rmMsg, err := d.podman.PodRm(ctx, key, false)
 	if err != nil {
 		log.Println("pod del err", err)
 		return err
@@ -398,7 +265,7 @@ func (d *PodmanProvider) GetPod(ctx context.Context, namespace, name string) (*c
 	log.Println("get pod", namespace, name)
 
 	key := namespace + "_" + name
-	return d.pods[key], nil
+	return d.manager.knownPods[key], nil
 }
 
 // GetPodStatus retrieves the status of a pod by name from the provider.
@@ -407,6 +274,7 @@ func (d *PodmanProvider) GetPod(ctx context.Context, namespace, name string) (*c
 // to return a version after DeepCopy.
 func (d *PodmanProvider) GetPodStatus(ctx context.Context, namespace, name string) (*corev1.PodStatus, error) {
 	log.Println("get status", namespace, name)
+	// TODO
 	return &corev1.PodStatus{}, nil
 }
 
@@ -417,35 +285,10 @@ func (d *PodmanProvider) GetPodStatus(ctx context.Context, namespace, name strin
 func (d *PodmanProvider) GetPods(context.Context) ([]*corev1.Pod, error) {
 	log.Println("list pods")
 
-	sysPods, err := d.podman.PodPs(context.TODO())
-	if err != nil {
-		return nil, err
-	}
-
 	pods := make([]*corev1.Pod, 0)
-	for _, sysPod := range sysPods {
-		nameParts := strings.Split(sysPod.Name, "_")
-		pod := &corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      nameParts[1],
-				Namespace: nameParts[0],
-				Labels:    sysPod.Labels,
-			},
-			Spec: corev1.PodSpec{
-				Containers: []corev1.Container{
-					{
-						Name: sysPod.Containers[0].Names,
-					},
-				},
-			},
-			Status: corev1.PodStatus{
-				Phase: "Running",
-				PodIP: "8.8.8.8",
-			},
-		}
-		pods = append(pods, pod)
+	for _, podSpec := range d.manager.knownPods {
+		pods = append(pods, podSpec)
 	}
-
 	return pods, nil
 }
 

@@ -1,8 +1,8 @@
 package podman
 
 import (
-	"time"
 	"context"
+	"time"
 )
 
 type PodActionReport struct {
@@ -11,10 +11,11 @@ type PodActionReport struct {
 }
 
 // PodCreate(ctx context.Context, opts PodCreateOptions) (*PodCreateReport, error)
-func (pc *PodmanClient) PodCreate(ctx context.Context, spec PodSpecGenerator) (*PodCreateReport, error) {
+func (pc *PodmanClient) PodCreate(ctx context.Context, spec *PodSpecGenerator) (*PodCreateReport, error) {
 	var out PodCreateReport
 	return &out, pc.performPost(ctx, "/libpod/pods/create", spec, &out)
 }
+
 type PodCreateReport struct {
 	Id string
 }
@@ -31,25 +32,26 @@ func (pc *PodmanClient) PodInspect(ctx context.Context, nameOrId string) (*Inspe
 	var out InspectPodData
 	return &out, pc.performGet(ctx, "/libpod/pods/"+encoded+"/json", &out)
 }
+
 type InspectPodData struct {
-	ID string `json:"Id"`
-	Name string
-	Namespace string `json:"Namespace,omitempty"`
-	Created time.Time
-	CreateCommand []string `json:"CreateCommand,omitempty"`
-	State string `json:"State"`
-	Hostname string
-	Labels map[string]string `json:"Labels,omitempty"`
-	CgroupParent string `json:"CgroupParent,omitempty"`
-	CgroupPath string `json:"CgroupPath,omitempty"`
-	InfraContainerID string `json:"InfraContainerID,omitempty"`
-	SharedNamespaces []string `json:"SharedNamespaces,omitempty"`
-	NumContainers uint
-	Containers []InspectPodContainerInfo `json:"Containers,omitempty"`
+	ID               string `json:"Id"`
+	Name             string
+	Namespace        string `json:"Namespace,omitempty"`
+	Created          time.Time
+	CreateCommand    []string `json:"CreateCommand,omitempty"`
+	State            string   `json:"State"`
+	Hostname         string
+	Labels           map[string]string `json:"Labels,omitempty"`
+	CgroupParent     string            `json:"CgroupParent,omitempty"`
+	CgroupPath       string            `json:"CgroupPath,omitempty"`
+	InfraContainerID string            `json:"InfraContainerID,omitempty"`
+	SharedNamespaces []string          `json:"SharedNamespaces,omitempty"`
+	NumContainers    uint
+	Containers       []InspectPodContainerInfo `json:"Containers,omitempty"`
 }
 type InspectPodContainerInfo struct {
-	ID string `json:"Id"`
-	Name string
+	ID    string `json:"Id"`
+	Name  string
 	State string
 }
 
@@ -94,10 +96,13 @@ func (pc *PodmanClient) PodRestart(ctx context.Context, nameOrId string) (*PodAc
 }
 
 // PodRm(ctx context.Context, namesOrIds []string, options PodRmOptions) ([]*PodRmReport, error)
-func (pc *PodmanClient) PodRm(ctx context.Context, nameOrId string) (*PodRmReport, error) {
+func (pc *PodmanClient) PodRm(ctx context.Context, nameOrId string, force bool) (*PodRmReport, error) {
 	encoded, err := UrlEncoded(nameOrId)
 	if err != nil {
 		return nil, err
+	}
+	if force {
+		encoded += "?force=true"
 	}
 
 	var out PodRmReport

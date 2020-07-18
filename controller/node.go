@@ -25,26 +25,35 @@ import (
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	"github.com/danopia/kube-pet-node/controllers/firewall"
-	"github.com/danopia/kube-pet-node/podman"
+	"github.com/danopia/kube-pet-node/controllers/pods"
+	// "github.com/danopia/kube-pet-node/podman"
 )
 
 // type NP struct {}
 // func (np *NP) NotifyNodeStatus(	)
 
 type PetNode struct {
+	// our clients
 	NodeName          string
-	Podman            *podman.PodmanClient
+	PodManager        *pods.PodManager
 	Kubernetes        *kubernetes.Clientset
+
+	// our controllers
+	Firewall          *firewall.FirewallController
+	// Pods          *pods.FirewallController
+
+	// virtual-kubelet controllers
 	NodeRunner        *node.NodeController
 	PodRunner         *node.PodController
-	Firewall          *firewall.FirewallController
+
+	// kubernetes object caches
 	PodInformer       corev1informers.PodInformer
 	SecretInformer    corev1informers.SecretInformer
 	ConfigMapInformer corev1informers.ConfigMapInformer
 	ServiceInformer   corev1informers.ServiceInformer
 }
 
-func NewPetNode(ctx context.Context, nodeName string, podman *podman.PodmanClient, kubernetes *kubernetes.Clientset, maxPods int, nodeIP net.IP, podNets []net.IPNet, cniNet string) (*PetNode, error) {
+func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManager, kubernetes *kubernetes.Clientset, maxPods int, nodeIP net.IP, podNets []net.IPNet, cniNet string) (*PetNode, error) {
 
 	podCIDRs := make([]string, len(podNets))
 	for idx, podNet := range podNets {
@@ -55,8 +64,7 @@ func NewPetNode(ctx context.Context, nodeName string, podman *podman.PodmanClien
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nodeName,
 			Labels: map[string]string{
-				"purpose": "pet",
-
+				"purpose":                "pet",
 				"type":                   "virtual-kubelet",
 				"kubernetes.io/role":     "pet",
 				"kubernetes.io/hostname": nodeName,
@@ -74,7 +82,12 @@ func NewPetNode(ctx context.Context, nodeName string, podman *podman.PodmanClien
 		},
 	}
 
-	nodeProvider, err := NewPetNodeProvider(pNode, podman, maxPods, nodeIP)
+	conVersion, err := podManager.RuntimeVersionReport(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	nodeProvider, err := NewPetNodeProvider(pNode, conVersion, maxPods, nodeIP)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +149,7 @@ func NewPetNode(ctx context.Context, nodeName string, podman *podman.PodmanClien
 	// setup other things
 	podRunner, err := node.NewPodController(node.PodControllerConfig{
 		PodClient: kubernetes.CoreV1(),
-		Provider:  NewPodmanProvider(podman, cniNet),
+		Provider:  pods.NewPodmanProvider(podManager, cniNet),
 
 		PodInformer:       podInformer,
 		EventRecorder:     eb.NewRecorder(scheme.Scheme, corev1.EventSource{Component: path.Join(pNode.Name, "pod-controller")}),
@@ -169,7 +182,7 @@ func NewPetNode(ctx context.Context, nodeName string, podman *podman.PodmanClien
 	return &PetNode{
 		NodeName:   nodeName,
 		Kubernetes: kubernetes,
-		Podman:     podman,
+		PodManager: podManager,
 
 		NodeRunner: nodeRunner,
 		PodRunner:  podRunner,
