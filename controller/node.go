@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"net"
-	"path"
 	"time"
 
 	// "k8s.io/client-go/tools/clientcmd"
@@ -20,6 +19,7 @@ import (
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/apimachinery/pkg/types"
 	// "github.com/virtual-kubelet/virtual-kubelet/log"
 
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -141,10 +141,19 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 
 	eb := record.NewBroadcaster()
 	eb.StartLogging(func(a string, b ...interface{}) {
-		log.Printf("record: %+v %+v", a, b)
+		log.Printf("K8S Event: "+a, b...)
 	})
 	// eb.StartLogging(log.G(context.TODO()).Infof)
-	eb.StartRecordingToSink(&corev1client.EventSinkImpl{Interface: kubernetes.CoreV1().Events("kube-system")})
+	eb.StartRecordingToSink(&corev1client.EventSinkImpl{Interface: kubernetes.CoreV1().Events("default")})
+
+	kubeletEvents := eb.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "kubelet", Host: pNode.Name})
+	// Using ObjectReference for events as the node maybe not cached; refer to #42701 for detail.
+	nodeRef := &corev1.ObjectReference{
+		Kind:      "Node",
+		Name:      pNode.Name,
+		UID:       types.UID(pNode.Name),
+		Namespace: "default",
+	}
 
 	// setup other things
 	podRunner, err := node.NewPodController(node.PodControllerConfig{
@@ -152,7 +161,7 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 		Provider:  pods.NewPodmanProvider(podManager, cniNet),
 
 		PodInformer:       podInformer,
-		EventRecorder:     eb.NewRecorder(scheme.Scheme, corev1.EventSource{Component: path.Join(pNode.Name, "pod-controller")}),
+		EventRecorder:     kubeletEvents,
 		SecretInformer:    secretInformer,
 		ConfigMapInformer: configMapInformer,
 		ServiceInformer:   serviceInformer,
@@ -178,6 +187,8 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 	podInformerFactory.Start(ctx.Done())
 	scmInformerFactory.Start(ctx.Done())
 	log.Println("Informers started")
+
+	kubeletEvents.Eventf(nodeRef, corev1.EventTypeNormal, "Starting"/*StartingKubelet*/, "Starting kube-pet-node.")
 
 	return &PetNode{
 		NodeName:   nodeName,

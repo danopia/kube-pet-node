@@ -2,6 +2,7 @@ package pods
 
 import (
 	"context"
+	"strings"
 	"log"
 	"net"
 	"time"
@@ -122,14 +123,14 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 		log.Println("pod insp err", err)
 		return err
 	}
-	log.Printf("pod insp %+v", insp)
+	// log.Printf("pod insp %+v", insp)
 
 	infraInsp, err := d.podman.ContainerInspect(ctx, insp.InfraContainerID, false)
 	if err != nil {
 		log.Println("infra insp err", err)
 		return err
 	}
-	log.Printf("infra insp %+v", insp)
+	// log.Printf("infra insp %+v", infraInsp)
 
 	if !pod.Spec.HostNetwork {
 		if infraNetwork, ok := infraInsp.NetworkSettings.Networks[d.cniNet]; ok {
@@ -149,7 +150,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 			log.Println("con insp err", err)
 			continue
 		}
-		log.Printf("con insp %+v", insp)
+		// log.Printf("con insp %+v", conInsp)
 		containerInspects[conInsp.Config.Labels["k8s-name"]] = conInsp
 	}
 
@@ -167,10 +168,13 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 			Status: corev1.ConditionTrue,
 		},
 	}
-	for _, cs := range pod.Status.ContainerStatuses {
+	for idx, _ := range pod.Status.ContainerStatuses {
+		cs := &pod.Status.ContainerStatuses[idx]
 		if insp, ok := containerInspects[cs.Name]; ok {
+			cs.Ready = true
 			cs.RestartCount = insp.RestartCount
 			cs.ContainerID = "podman://" + insp.ID
+			cs.ImageID = strings.Split(insp.ImageName, ":")[0]+"@shasum:"+insp.Image
 			cs.State = corev1.ContainerState{
 				Running: &corev1.ContainerStateRunning{ // TODO: check!
 					StartedAt: now,
