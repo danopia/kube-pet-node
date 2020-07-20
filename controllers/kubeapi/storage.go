@@ -7,14 +7,13 @@ import (
 	"path/filepath"
 	"sync"
 	// "strings"
-
 	// corev1 "k8s.io/api/core/v1"
 )
 
 type KeyMaterialStorage struct {
 	materialId string
-	rootDir string
-	lock    sync.RWMutex
+	rootDir    string
+	lock       sync.RWMutex
 }
 
 func NewKeyMaterialStorage(materialId string) (*KeyMaterialStorage, error) {
@@ -29,7 +28,7 @@ func NewKeyMaterialStorage(materialId string) (*KeyMaterialStorage, error) {
 	}
 
 	return &KeyMaterialStorage{
-		rootDir: rootDir,
+		rootDir:    rootDir,
 		materialId: materialId,
 	}, nil
 }

@@ -11,7 +11,7 @@ import (
 )
 
 type PodManager struct {
-	podman *podman.PodmanClient
+	podman      *podman.PodmanClient
 	specStorage *PodSpecStorage
 	knownPods   map[string]*corev1.Pod
 

@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"sync"
 	"strings"
+	"sync"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -112,5 +112,10 @@ func (pss *PodSpecStorage) RemovePod(coord PodCoord) error {
 	pss.lock.Lock()
 	defer pss.lock.Unlock()
 
-	return os.Remove(filePath)
+	err := os.Remove(filePath)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	return nil
 }

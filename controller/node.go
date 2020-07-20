@@ -15,18 +15,18 @@ import (
 	// corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"github.com/virtual-kubelet/virtual-kubelet/node"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/types"
 	kubeinformers "k8s.io/client-go/informers"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/apimachinery/pkg/types"
 	// "github.com/virtual-kubelet/virtual-kubelet/log"
 
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	"github.com/danopia/kube-pet-node/controllers/firewall"
-	"github.com/danopia/kube-pet-node/controllers/pods"
 	"github.com/danopia/kube-pet-node/controllers/kubeapi"
+	"github.com/danopia/kube-pet-node/controllers/pods"
 	// "github.com/danopia/kube-pet-node/podman"
 )
 
@@ -35,17 +35,17 @@ import (
 
 type PetNode struct {
 	// our clients
-	NodeName          string
-	PodManager        *pods.PodManager
-	Kubernetes        *kubernetes.Clientset
+	NodeName   string
+	PodManager *pods.PodManager
+	Kubernetes *kubernetes.Clientset
 
 	// our controllers
-	Firewall          *firewall.FirewallController
+	Firewall *firewall.FirewallController
 	// Pods          *pods.FirewallController
 
 	// virtual-kubelet controllers
-	NodeRunner        *node.NodeController
-	PodRunner         *node.PodController
+	NodeRunner *node.NodeController
+	PodRunner  *node.PodController
 
 	// kubernetes object caches
 	PodInformer       corev1informers.PodInformer
@@ -195,7 +195,7 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 	scmInformerFactory.Start(ctx.Done())
 	log.Println("Informers started")
 
-	kubeletEvents.Eventf(nodeRef, corev1.EventTypeNormal, "Starting"/*StartingKubelet*/, "Starting kube-pet-node.")
+	kubeletEvents.Eventf(nodeRef, corev1.EventTypeNormal, "Starting" /*StartingKubelet*/, "Starting kube-pet-node.")
 
 	return &PetNode{
 		NodeName:   nodeName,

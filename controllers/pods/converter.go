@@ -65,8 +65,8 @@ func ConvertPodConfig(pod *corev1.Pod, clusterDns net.IP, cniNet string) *podman
 
 	return &podman.PodSpecGenerator{
 		PodBasicConfig: podman.PodBasicConfig{
-			Hostname:         pod.ObjectMeta.Name,
-			Labels:           map[string]string{
+			Hostname: pod.ObjectMeta.Name,
+			Labels: map[string]string{
 				"heritage": "kube-pet-node",
 			},
 			Name:             key,

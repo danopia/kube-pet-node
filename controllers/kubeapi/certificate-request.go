@@ -3,8 +3,8 @@ package kubeapi
 import (
 	// "log"
 	"io"
-	"os/exec"
 	"io/ioutil"
+	"os/exec"
 
 	"github.com/go-ini/ini"
 )

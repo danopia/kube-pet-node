@@ -2,9 +2,9 @@ package pods
 
 import (
 	"context"
-	"strings"
 	"log"
 	"net"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -24,9 +24,9 @@ import (
 )
 
 type PodmanProvider struct {
-	podman      *podman.PodmanClient
+	podman  *podman.PodmanClient
 	manager *PodManager
-	cniNet      string
+	cniNet  string
 	// pods        map[string]*corev1.Pod
 	podNotifier func(*corev1.Pod)
 	// specStorage *PodSpecStorage
@@ -34,9 +34,9 @@ type PodmanProvider struct {
 
 func NewPodmanProvider(podManager *PodManager, cniNet string) *PodmanProvider {
 	return &PodmanProvider{
-		podman:      podManager.podman,
+		podman:  podManager.podman,
 		manager: podManager,
-		cniNet:      cniNet,
+		cniNet:  cniNet,
 		// pods:        make(map[string]*corev1.Pod),
 		podNotifier: func(*corev1.Pod) {},
 		// specStorage: specStorage,
@@ -174,7 +174,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 			cs.Ready = true
 			cs.RestartCount = insp.RestartCount
 			cs.ContainerID = "podman://" + insp.ID
-			cs.ImageID = strings.Split(insp.ImageName, ":")[0]+"@shasum:"+insp.Image
+			cs.ImageID = strings.Split(insp.ImageName, ":")[0] + "@shasum:" + insp.Image
 			cs.State = corev1.ContainerState{
 				Running: &corev1.ContainerStateRunning{ // TODO: check!
 					StartedAt: now,
@@ -208,6 +208,13 @@ func (d *PodmanProvider) DeletePod(ctx context.Context, pod *corev1.Pod) error {
 	now := metav1.NewTime(time.Now())
 	msg, err := d.podman.PodStop(ctx, key)
 	if err != nil {
+		if err, ok := err.(*podman.ApiError); ok {
+			if err.Status == 404 {
+				// pod already doesn't exist; so just clean up
+				return d.manager.UnregisterPod(PodCoord{pod.ObjectMeta.Namespace, pod.ObjectMeta.Name})
+			}
+		}
+
 		log.Println("pod stop err", err)
 		return err
 	}

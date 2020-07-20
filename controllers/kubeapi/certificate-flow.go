@@ -1,21 +1,21 @@
 package kubeapi
 
 import (
+	"context"
 	"log"
-	"time"
 	"os/exec"
 	"strings"
-	"context"
+	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	certv1 "k8s.io/api/certificates/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (ka *KubeApi) PerformCertificateFlow(ctx context.Context) (error) {
+func (ka *KubeApi) PerformCertificateFlow(ctx context.Context) error {
 	csrApi := ka.kubernetes.CertificatesV1beta1().CertificateSigningRequests()
-	csrName := "kube-pet-node."+ka.nodeName
+	csrName := "kube-pet-node." + ka.nodeName
 
-	err := ka.keyStorage.EnsurePrivateKeyExists(func (keyPath string) error {
+	err := ka.keyStorage.EnsurePrivateKeyExists(func(keyPath string) error {
 		log.Println("Generating new RSA private key at", keyPath)
 		return exec.Command("openssl", "genrsa", "-out", keyPath, "2048").Run()
 	})
