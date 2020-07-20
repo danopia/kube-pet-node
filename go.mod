@@ -21,6 +21,7 @@ replace (
 	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.16.8
 	k8s.io/kubectl => k8s.io/kubectl v0.16.8
 	k8s.io/kubelet => k8s.io/kubelet v0.16.8
+	k8s.io/kubernetes => k8s.io/kubernetes v1.16.8
 	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.16.8
 	k8s.io/metrics => k8s.io/metrics v0.16.8
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.16.8
@@ -29,7 +30,9 @@ replace (
 require (
 	github.com/bep/debounce v1.2.0
 	github.com/containers/libpod v1.9.3
+	github.com/go-ini/ini v1.57.0
 	github.com/google/nftables v0.0.0-20200316075819-7127d9d22474
+	github.com/gorilla/mux v1.7.4
 	github.com/pbnjay/memory v0.0.0-20190104145345-974d429e7ae4
 	github.com/virtual-kubelet/virtual-kubelet v1.2.1
 	golang.org/x/sys v0.0.0-20200327173247-9dae0f8f5775

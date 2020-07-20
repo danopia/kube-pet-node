@@ -26,6 +26,7 @@ import (
 
 	"github.com/danopia/kube-pet-node/controllers/firewall"
 	"github.com/danopia/kube-pet-node/controllers/pods"
+	"github.com/danopia/kube-pet-node/controllers/kubeapi"
 	// "github.com/danopia/kube-pet-node/podman"
 )
 
@@ -172,6 +173,12 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 
 	firewall := firewall.NewFirewallController(pNode.Name, serviceInformer, endpointsInformer)
 	go firewall.Run(ctx)
+
+	kubeApi, err := kubeapi.NewKubeApi(kubernetes, pNode.Name, nodeIP)
+	if err != nil {
+		return nil, err
+	}
+	go kubeApi.Run(ctx)
 
 	go nodeRunner.Run(ctx)
 	// err = nodeRunner.Run(ctx)
