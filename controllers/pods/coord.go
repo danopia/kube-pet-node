@@ -27,3 +27,7 @@ func (pc PodCoord) FileName() string {
 func (pc PodCoord) Key() string {
 	return fmt.Sprintf("%v_%v", pc.Namespace, pc.Name)
 }
+
+func (pc PodCoord) ContainerKey(containerName string) string {
+	return fmt.Sprintf("%v_%v_%v", pc.Namespace, pc.Name, containerName)
+}

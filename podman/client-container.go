@@ -28,9 +28,9 @@ type ContainerCreateReport struct {
 
 // ContainerDiff(ctx context.Context, nameOrID string, options DiffOptions) (*DiffReport, error)
 
-// ContainerExec(ctx context.Context, nameOrID string, options ExecOptions, streams define.AttachStreams) (int, error)
+/// ContainerExec(ctx context.Context, nameOrID string, options ExecOptions, streams define.AttachStreams) (int, error)
 
-// ContainerExecDetached(ctx context.Context, nameOrID string, options ExecOptions) (string, error)
+/// ContainerExecDetached(ctx context.Context, nameOrID string, options ExecOptions) (string, error)
 
 // ContainerExists(ctx context.Context, nameOrID string) (*BoolReport, error)
 

@@ -153,7 +153,7 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 		Kind:      "Node",
 		Name:      pNode.Name,
 		UID:       types.UID(pNode.Name),
-		Namespace: "default",
+		Namespace: "",
 	}
 
 	// setup other things
@@ -174,7 +174,7 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 	firewall := firewall.NewFirewallController(pNode.Name, serviceInformer, endpointsInformer)
 	go firewall.Run(ctx)
 
-	kubeApi, err := kubeapi.NewKubeApi(kubernetes, pNode.Name, nodeIP)
+	kubeApi, err := kubeapi.NewKubeApi(kubernetes, podManager, pNode.Name, nodeIP)
 	if err != nil {
 		return nil, err
 	}

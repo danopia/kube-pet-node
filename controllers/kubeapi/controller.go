@@ -10,11 +10,14 @@ import (
 	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	// certv1 "k8s.io/api/certificates/v1beta1"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/danopia/kube-pet-node/controllers/pods"
 )
 
 type KubeApi struct {
 	keyStorage *KeyMaterialStorage
 	kubernetes *kubernetes.Clientset
+	podManager *pods.PodManager
 	nodeName   string
 	nodeIP     net.IP
 
@@ -24,7 +27,7 @@ type KubeApi struct {
 	httpsLnr net.Listener
 }
 
-func NewKubeApi(kubernetes *kubernetes.Clientset, nodeName string, nodeIP net.IP) (*KubeApi, error) {
+func NewKubeApi(kubernetes *kubernetes.Clientset, podManager *pods.PodManager, nodeName string, nodeIP net.IP) (*KubeApi, error) {
 
 	keyStorage, err := NewKeyMaterialStorage("kubelet-server")
 	if err != nil {
@@ -46,6 +49,7 @@ func NewKubeApi(kubernetes *kubernetes.Clientset, nodeName string, nodeIP net.IP
 	return &KubeApi{
 		keyStorage: keyStorage,
 		kubernetes: kubernetes,
+		podManager: podManager,
 		nodeName:   nodeName,
 		nodeIP:     nodeIP,
 
@@ -62,7 +66,7 @@ func (ka *KubeApi) Run(ctx context.Context) {
 	// TODO: close servers when ctx cancels
 
 	// get HTTP going immediately / in the background
-	MountApi()
+	MountApi(ka.podManager)
 	go func() {
 		defer ka.httpLnr.Close()
 		log.Fatalln(ka.httpSrv.Serve(ka.httpLnr))

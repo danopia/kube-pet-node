@@ -128,3 +128,7 @@ func (pm *PodManager) UnregisterPod(podCoord PodCoord) error {
 	log.Println("Pod", podCoord, "removed from store")
 	return nil
 }
+
+func (pm *PodManager) StartExecInPod(ctx context.Context, podCoord PodCoord, containerName string, options *podman.ContainerExecOptions) (*podman.ExecSession, error) {
+	return pm.podman.ContainerExec(ctx, podCoord.ContainerKey(containerName), options)
+}

@@ -11,8 +11,8 @@ import (
 	"syscall"
 
 	"github.com/danopia/kube-pet-node/controller"
-	"github.com/danopia/kube-pet-node/podman"
 	"github.com/danopia/kube-pet-node/controllers/pods"
+	"github.com/danopia/kube-pet-node/podman"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"

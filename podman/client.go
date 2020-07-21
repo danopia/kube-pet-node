@@ -37,7 +37,7 @@ func (pc *PodmanClient) performRequest(req *http.Request, path string) (*http.Re
 	}
 
 	// check for happy path, return on the spot
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+	if resp.StatusCode == 101 || (resp.StatusCode >= 200 && resp.StatusCode < 300) {
 		return resp, nil
 	} else if resp.StatusCode == 304 {
 		// No Content seemingly doesn't have an error payload even though swagger shows one

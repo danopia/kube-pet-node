@@ -12,9 +12,12 @@ import (
 	// statsv1 "k8s.io/kubernetes/pkg/kubelet/apis/stats/v1alpha1"
 
 	vkapi "github.com/virtual-kubelet/virtual-kubelet/node/api"
+
+	"github.com/danopia/kube-pet-node/controllers/pods"
+	"github.com/danopia/kube-pet-node/podman"
 )
 
-func MountApi() {
+func MountApi(podManager *pods.PodManager) {
 	// api := mux.NewRouter()
 
 	vkapi.AttachPodRoutes(vkapi.PodHandlerConfig{
@@ -23,8 +26,50 @@ func MountApi() {
 
 		RunInContainer: func(ctx context.Context, namespace, podName, containerName string, cmd []string, attach vkapi.AttachIO) error {
 			log.Println("RunInContainer(", namespace, podName, containerName, cmd, attach, ")")
-			attach.Stdout().Write([]byte("hi world"))
-			attach.Stdout().Close()
+
+			session, err := podManager.StartExecInPod(ctx, pods.PodCoord{namespace, podName}, containerName, &podman.ContainerExecOptions{
+				Cmd:          cmd,
+				Tty:          attach.TTY(),
+				AttachStdin:  attach.Stdin() != nil,
+				AttachStdout: attach.Stdout() != nil,
+				AttachStderr: attach.Stderr() != nil,
+			})
+			if err != nil {
+				log.Println("exec init err:", err)
+				return err
+			}
+
+			go func() {
+				for termSize := range attach.Resize() {
+					log.Println("exec resize:", termSize)
+					if err := session.Resize(ctx, &podman.ExecResizeOptions{
+						Width:  termSize.Width,
+						Height: termSize.Height,
+					}); err != nil {
+						log.Println("WARN: Resize exec session to", termSize.Width, termSize.Height, "failed:", err)
+					}
+				}
+			}()
+
+			input, output, err := session.Start(ctx)
+			if err != nil {
+				log.Println("exec start err:", err)
+				// TODO: cancel exec?
+				return err
+			}
+			log.Println("exec start done", input, output)
+
+			if input != nil && attach.Stdin() != nil {
+				go io.Copy(input, attach.Stdin())
+			}
+
+			if attach.TTY() {
+				// TODO: why does TTY not have stdout/stderr split??
+				io.Copy(attach.Stdout(), output)
+			} else {
+				podman.DemuxRawStream(output, attach.Stdout(), attach.Stderr())
+			}
+
 			return nil
 		},
 
