@@ -17,18 +17,22 @@ The concept is taking a managed cloud-based control plane and adding external ba
 I'm just tryina run some high-resource stuff out of the cloud so it's cheaper.
 
 ### v1 goals
-* learn a shitton about what kubelet actually does and how a Kubernetes node works
-* run reasonably sane Kubernetes pods
-* manage and request our own api certificates
-* provide container exec, logs, and metrics
-* expose static pod representing the host system (host exec & dmesg logs)
-* emit Event resources just like kubelet
-* require as few permissions as possible - non-root, plus CAP_NET_ADMIN and access to a root podman
-* support configmap/secret volumes
+* [ ] learn a shitton about what kubelet actually does and how a Kubernetes node works
+* [ ] run reasonably sane Kubernetes pods
+* [x] request our own api certificates automatically
+* provide interactive container apis:
+  * [x] exec
+  * [ ] logs
+  * [ ] metrics
+* [ ] expose static pod representing the host system (host exec & dmesg logs)
+* [ ] emit Event resources just like kubelet
+* [x] require as few permissions as possible - non-root, plus CAP_NET_ADMIN and access to a root podman
+* [ ] support configmap/secret volumes
 
 ### stretch goals
 * report pod and node metrics
 * support init containers
+* kubectl port-forward
 * create CRDs to observe and maybe manipulate hardware devices (disk drives, TV tuners, etc)
 * support drone.io job pods (changing image of running containers)
 * support NetworkPolicy on pod networking
