@@ -22,7 +22,8 @@ I'm just tryina run some high-resource stuff out of the cloud so it's cheaper.
 * [x] request our own api certificates automatically
 * provide interactive container apis:
   * [x] exec
-  * [ ] logs
+  * [x] logs
+  * [ ] attach
   * [ ] metrics
 * [ ] expose static pod representing the host system (host exec & dmesg logs)
 * [ ] emit Event resources just like kubelet

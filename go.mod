@@ -34,7 +34,7 @@ require (
 	github.com/google/nftables v0.0.0-20200316075819-7127d9d22474
 	github.com/gorilla/mux v1.7.4
 	github.com/pbnjay/memory v0.0.0-20190104145345-974d429e7ae4
-	github.com/virtual-kubelet/virtual-kubelet v1.2.1
+	github.com/virtual-kubelet/virtual-kubelet v0.0.0-20200504180557-8fc8b69d8f53
 	golang.org/x/sys v0.0.0-20200327173247-9dae0f8f5775
 	k8s.io/api v0.17.4
 	k8s.io/apimachinery v0.17.4

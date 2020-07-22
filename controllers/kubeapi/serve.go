@@ -1,14 +1,13 @@
 package kubeapi
 
 import (
-	// "net"
-	"strconv"
-	// "bytes"
+	"bytes"
 	"context"
 	"io"
-	// "io/ioutil"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 
 	// statsv1 "k8s.io/kubernetes/pkg/kubelet/apis/stats/v1alpha1"
 
@@ -79,12 +78,12 @@ func MountApi(podManager *pods.PodManager) {
 			log.Printf("%+v", opts)
 
 			// https://godoc.org/github.com/virtual-kubelet/virtual-kubelet/node/api#ContainerLogOpts
-			// if opts.Previous {
-			// 	return ioutil.NopCloser(bytes.NewReader([]byte("TODO: kube-pet-node doesn't support --previous=true"))), nil
-			// }
+			if opts.Previous {
+				return ioutil.NopCloser(bytes.NewReader([]byte("TODO: kube-pet-node doesn't support --previous=true"))), nil
+			}
 			logOpts := &podman.ContainerLogsOptions{
 				Timestamps: opts.Timestamps,
-				// Follow: opts.Follow,
+				Follow:     opts.Follow,
 			}
 			// TODO: LimitBytes   int
 			// TODO: SinceSeconds int
