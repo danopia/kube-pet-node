@@ -2,6 +2,7 @@ package pods
 
 import (
 	"context"
+	"io"
 	"log"
 
 	corev1 "k8s.io/api/core/v1"
@@ -131,4 +132,7 @@ func (pm *PodManager) UnregisterPod(podCoord PodCoord) error {
 
 func (pm *PodManager) StartExecInPod(ctx context.Context, podCoord PodCoord, containerName string, options *podman.ContainerExecOptions) (*podman.ExecSession, error) {
 	return pm.podman.ContainerExec(ctx, podCoord.ContainerKey(containerName), options)
+}
+func (pm *PodManager) FetchContainerLogs(ctx context.Context, podCoord PodCoord, containerName string, options *podman.ContainerLogsOptions) (io.ReadCloser, error) {
+	return pm.podman.ContainerLogs(ctx, podCoord.ContainerKey(containerName), options)
 }

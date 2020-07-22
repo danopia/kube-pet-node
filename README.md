@@ -31,9 +31,11 @@ I'm just tryina run some high-resource stuff out of the cloud so it's cheaper.
 
 ### stretch goals
 * report pod and node metrics
-* support init containers
+* support self-upgrading the node itself, on demand (e.g. update target version in a configmap)
+* support init containers on pods (and eventually ephemeral containers)
 * kubectl port-forward
 * create CRDs to observe and maybe manipulate hardware devices (disk drives, TV tuners, etc)
+  * loops probably distributed as a daemonset/deployment, even if it made in-project
 * support drone.io job pods (changing image of running containers)
 * support NetworkPolicy on pod networking
 * support registering pods into systemctl for bringing up at boot, even if kube-pet-node is broken

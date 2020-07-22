@@ -2,6 +2,7 @@ package podman
 
 import (
 	"context"
+	"io"
 	"time"
 )
 
@@ -185,6 +186,44 @@ type InspectHostPort struct {
 // ContainerList(ctx context.Context, options ContainerListOptions) ([]ListContainer, error)
 
 // ContainerLogs(ctx context.Context, containers []string, options ContainerLogsOptions) error
+type ContainerLogsOptions struct {
+	Follow bool
+	// Stdout bool
+	// Stderr bool
+	Since      string
+	Until      string
+	Timestamps bool
+	Tail       string
+}
+
+func (pc *PodmanClient) ContainerLogs(ctx context.Context, nameOrId string, options *ContainerLogsOptions) (io.ReadCloser, error) {
+	encoded, err := UrlEncoded(nameOrId)
+	if err != nil {
+		return nil, err
+	}
+	flags := "?stdout=true&stderr=true"
+	if options.Follow {
+		flags += "&follow=true"
+	}
+	if options.Timestamps {
+		flags += "&timestamps=true"
+	}
+	if options.Since != "" {
+		flags += "&since=" + options.Since
+	}
+	if options.Until != "" {
+		flags += "&until=" + options.Until
+	}
+	if options.Tail != "" {
+		flags += "&tail=" + options.Tail
+	}
+
+	resp, err := pc.performRawRequest(ctx, "GET", "/libpod/containers/"+encoded+"/logs"+flags)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Body, nil
+}
 
 // ContainerMount(ctx context.Context, nameOrIDs []string, options ContainerMountOptions) ([]*ContainerMountReport, error)
 

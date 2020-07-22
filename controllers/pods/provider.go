@@ -154,19 +154,11 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 		containerInspects[conInsp.Config.Labels["k8s-name"]] = conInsp
 	}
 
-	pod.Status.Conditions = []corev1.PodCondition{
-		{
-			Type:   corev1.PodInitialized,
-			Status: corev1.ConditionTrue,
-		},
-		{
-			Type:   corev1.PodReady,
-			Status: corev1.ConditionTrue,
-		},
-		{
-			Type:   corev1.PodScheduled,
-			Status: corev1.ConditionTrue,
-		},
+	for idx, _ := range pod.Status.Conditions {
+		cond := &pod.Status.Conditions[idx]
+		if cond.Type == corev1.PodReady {
+			cond.Status = corev1.ConditionTrue
+		}
 	}
 	for idx, _ := range pod.Status.ContainerStatuses {
 		cs := &pod.Status.ContainerStatuses[idx]

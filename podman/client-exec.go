@@ -106,8 +106,9 @@ func (es *ExecSession) Start(ctx context.Context) (io.Writer, io.ReadCloser, err
 	}
 }
 
-func DemuxRawStream(input io.ReadCloser, stdout io.WriteCloser, stderr io.WriteCloser) error {
+func DemuxRawStream(input io.ReadCloser, stdout io.WriteCloser, stderr io.WriteCloser, addNewLines bool) error {
 	header := make([]byte, 8)
+	newline := []byte{0xa}
 
 	var err error
 	for err == nil {
@@ -123,6 +124,9 @@ func DemuxRawStream(input io.ReadCloser, stdout io.WriteCloser, stderr io.WriteC
 		}
 
 		_, err = io.CopyN(output, input, int64(pktLen))
+		if err == nil && addNewLines {
+			_, err = output.Write(newline)
+		}
 	}
 
 	stdout.Close()

@@ -2,10 +2,11 @@ package kubeapi
 
 import (
 	// "net"
-	"bytes"
+	"strconv"
+	// "bytes"
 	"context"
 	"io"
-	"io/ioutil"
+	// "io/ioutil"
 	"log"
 	"net/http"
 
@@ -67,7 +68,7 @@ func MountApi(podManager *pods.PodManager) {
 				// TODO: why does TTY not have stdout/stderr split??
 				io.Copy(attach.Stdout(), output)
 			} else {
-				podman.DemuxRawStream(output, attach.Stdout(), attach.Stderr())
+				podman.DemuxRawStream(output, attach.Stdout(), attach.Stderr(), false)
 			}
 
 			return nil
@@ -76,8 +77,32 @@ func MountApi(podManager *pods.PodManager) {
 		GetContainerLogs: func(ctx context.Context, namespace, podName, containerName string, opts vkapi.ContainerLogOpts) (io.ReadCloser, error) {
 			log.Println("GetContainerLogs(", namespace, podName, containerName, opts, ")")
 			log.Printf("%+v", opts)
+
 			// https://godoc.org/github.com/virtual-kubelet/virtual-kubelet/node/api#ContainerLogOpts
-			return ioutil.NopCloser(bytes.NewReader([]byte("hello world"))), nil
+			// if opts.Previous {
+			// 	return ioutil.NopCloser(bytes.NewReader([]byte("TODO: kube-pet-node doesn't support --previous=true"))), nil
+			// }
+			logOpts := &podman.ContainerLogsOptions{
+				Timestamps: opts.Timestamps,
+				// Follow: opts.Follow,
+			}
+			// TODO: LimitBytes   int
+			// TODO: SinceSeconds int
+			// TODO: SinceTime    time.Time
+			if opts.Tail > 0 {
+				logOpts.Tail = strconv.Itoa(opts.Tail)
+			}
+
+			logs, err := podManager.FetchContainerLogs(ctx, pods.PodCoord{namespace, podName}, containerName, logOpts)
+			if err != nil {
+				log.Println("logs get err:", err)
+				return nil, err
+			}
+
+			// kubernetes mixes stdout/stderr so just use one pipe for everything
+			outR, outW := io.Pipe()
+			go podman.DemuxRawStream(logs, outW, outW, true)
+			return outR, nil
 		},
 	}, mux{}, true)
 	// vkapi.AttachPodMetricsRoutes(vkapi.PodMetricsConfig{
