@@ -1,0 +1,40 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-test
+  labels:
+    app.kubernetes.io/name: nginx-test
+    app.kubernetes.io/part-of: kube-pet-node
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nginx-test
+      app.kubernetes.io/part-of: kube-pet-node
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nginx-test
+        app.kubernetes.io/part-of: kube-pet-node
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - name: app
+        image: alpine
+        command:
+        - sh
+        - -euxc
+
+        - |
+          while true
+          do
+            wget -O- http://nginx-hi/
+            sleep 15s
+          done
+
+      nodeSelector:
+        purpose: pet
+      tolerations:
+      - key: kubernetes.io/pet-node
+        operator: Exists
+        effect: NoSchedule
