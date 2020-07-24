@@ -6,6 +6,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/pbnjay/memory"
+
 	"github.com/danopia/kube-pet-node/podman"
 )
 
@@ -95,6 +97,27 @@ func ConvertContainerConfig(pod *corev1.Pod, conSpec *corev1.Container, podId st
 		isSystemd = value
 	}
 
+	cpuShares := uint64(milliCPUToShares(conSpec.Resources.Requests.Cpu().MilliValue()))
+	resources := &podman.LinuxResources{
+		CPU: &podman.LinuxCPU{
+			Shares: &cpuShares,
+		},
+	}
+	if !conSpec.Resources.Limits.Memory().IsZero() {
+		memoryLimit := conSpec.Resources.Limits.Memory().Value()
+		resources.Memory = &podman.LinuxMemory{
+			Limit: &memoryLimit,
+		}
+	}
+	if !conSpec.Resources.Limits.Cpu().IsZero() {
+		cpuPeriod := uint64(CpuPeriod)
+		cpuQuota := milliCPUToQuota(conSpec.Resources.Limits.Cpu().MilliValue(), CpuPeriod)
+		resources.CPU.Period = &cpuPeriod
+		resources.CPU.Quota = &cpuQuota
+	}
+	// TODO: HugepageLimits = GetHugepageLimitsFromResources(container.Resources)
+	oomScoreAdjust := GetContainerOOMScoreAdjust(pod, conSpec, int64(memory.TotalMemory()))
+
 	return &podman.SpecGenerator{
 		ContainerBasicConfig: podman.ContainerBasicConfig{
 			Name:       key + "_" + conSpec.Name,
@@ -141,7 +164,15 @@ func ConvertContainerConfig(pod *corev1.Pod, conSpec *corev1.Container, podId st
 		},
 
 		// TODO: ContainerSecurityConfig
-		// TODO: ContainerResourceConfig
+
+		ContainerResourceConfig: podman.ContainerResourceConfig{
+			ResourceLimits: resources,
+			OOMScoreAdj: &oomScoreAdjust,
+		},
+
+		ContainerCgroupConfig: podman.ContainerCgroupConfig{
+			CgroupsMode: "enabled",
+		},
 	}
 
 	// container spec, exhasutive as of july 2020
@@ -167,4 +198,90 @@ func ConvertContainerConfig(pod *corev1.Pod, conSpec *corev1.Container, podId st
 	// Stdin
 	// TODO: StdinOnce
 	// TTY
+}
+
+
+// Via https://github.com/kubernetes/kubernetes/blob/master/pkg/kubelet/qos/policy.go
+
+const (
+	// KubeletOOMScoreAdj int = -999 // used for the kubernetes control plane itself
+	guaranteedOOMScoreAdj int = -998
+	besteffortOOMScoreAdj int = 1000
+)
+func GetContainerOOMScoreAdjust(pod *corev1.Pod, container *corev1.Container, memoryCapacity int64) int {
+	if *pod.Spec.Priority >= int32(2*1000000000) {
+		return guaranteedOOMScoreAdj
+	}
+
+	// QOS is on pod status as of K8S 1.6.0 - https://github.com/kubernetes/kubernetes/pull/37968
+	switch pod.Status.QOSClass {
+	case corev1.PodQOSGuaranteed:
+		return guaranteedOOMScoreAdj
+	case corev1.PodQOSBestEffort:
+		return besteffortOOMScoreAdj
+	}
+
+	memoryRequest := container.Resources.Requests.Memory().Value()
+	oomScoreAdjust := 1000 - (1000*memoryRequest)/memoryCapacity
+	// A guaranteed pod using 100% of memory can have an OOM score of 10. Ensure
+	// that burstable pods have a higher OOM score adjustment.
+	if int(oomScoreAdjust) < (1000 + guaranteedOOMScoreAdj) {
+		return (1000 + guaranteedOOMScoreAdj)
+	}
+	// Give burstable pods a higher chance of survival over besteffort pods.
+	if int(oomScoreAdjust) == besteffortOOMScoreAdj {
+		return int(oomScoreAdjust - 1)
+	}
+	return int(oomScoreAdjust)
+}
+
+
+// Via https://github.com/kubernetes/kubernetes/blob/master/pkg/kubelet/kuberuntime/helpers_linux.go
+
+const (
+	// Taken from lmctfy https://github.com/google/lmctfy/blob/master/lmctfy/controllers/cpu_controller.cc
+	minShares     = 2
+	sharesPerCPU  = 1024
+	milliCPUToCPU = 1000
+
+	// 100000 is equivalent to 100ms
+	CpuPeriod    = int64(100000)
+	minCpuPeriod = int64(1000)
+)
+
+// milliCPUToShares converts milliCPU to CPU shares
+func milliCPUToShares(milliCPU int64) int64 {
+	if milliCPU == 0 {
+		// Return 2 here to really match kernel default for zero milliCPU.
+		return minShares
+	}
+	// Conceptually (milliCPU / milliCPUToCPU) * sharesPerCPU, but factored to improve rounding.
+	shares := (milliCPU * sharesPerCPU) / milliCPUToCPU
+	if shares < minShares {
+		return minShares
+	}
+	return shares
+}
+
+// milliCPUToQuota converts milliCPU to CFS quota and period values
+func milliCPUToQuota(milliCPU int64, period int64) (quota int64) {
+	// CFS quota is measured in two values:
+	//  - cfs_period_us=100ms (the amount of time to measure usage across)
+	//  - cfs_quota=20ms (the amount of cpu time allowed to be used across a period)
+	// so in the above example, you are limited to 20% of a single CPU
+	// for multi-cpu environments, you just scale equivalent amounts
+	// see https://www.kernel.org/doc/Documentation/scheduler/sched-bwc.txt for details
+	if milliCPU == 0 {
+		return
+	}
+
+	// we then convert your milliCPU to a value normalized over a period
+	quota = (milliCPU * period) / milliCPUToCPU
+
+	// quota needs to be a minimum of 1ms.
+	if quota < minCpuPeriod {
+		quota = minCpuPeriod
+	}
+
+	return
 }

@@ -26,6 +26,7 @@ I'm just tryina run some high-resource stuff out of the cloud so it's cheaper.
   * [ ] attach
   * [ ] metrics
 * [ ] expose static pod representing the host system (host exec & dmesg logs)
+  * (static pods have annotations incl. `kubernetes.io/config.source`)
 * [ ] emit Event resources just like kubelet
 * [x] require as few permissions as possible - non-root, plus CAP_NET_ADMIN and access to a root podman
 * [ ] support configmap volumes
