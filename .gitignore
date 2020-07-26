@@ -2,3 +2,4 @@ kube-pet-node
 node-kubeconfig.yaml
 .gradle/
 .gogradle/
+build/

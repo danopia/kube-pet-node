@@ -7,9 +7,18 @@ golang {
   packagePath = 'github.com/danopia/kube-pet-node'
   goVersion = '1.13.4'
 }
+goBuild {
+  targetPlatform = ['linux-amd64']
+}
 installDependencies.enabled = false
 resolveBuildDependencies.enabled = false
 resolveTestDependencies.enabled = false
+
+task stripBin(type: Exec) {
+  workingDir ".gogradle"
+  commandLine 'strip', 'kube-pet-node-linux-amd64'
+}
+tasks.stripBin.dependsOn 'goBuild'
 
 apply plugin: 'nebula.deb'
 task packageDeb(type: Deb) {
@@ -19,8 +28,9 @@ task packageDeb(type: Deb) {
   } else {
     release = 1
   }
+  arch = 'amd64'
 
-  postInstall file('dist/deb-postInstall.sh')
+  // postInstall file('dist/deb-postInstall.sh')
 
   // requires('nodejs')
   requires('adduser')
@@ -32,6 +42,12 @@ task packageDeb(type: Deb) {
   into '/opt/kube-pet-node'
   user 'root'
   permissionGroup 'root'
+
+  from('.gogradle/kube-pet-node-linux-amd64') {
+    into 'bin'
+  }
+  link('/usr/bin/kube-pet-node',
+      '/opt/kube-pet-node/bin/kube-pet-node-linux-amd64')
 
   // from('src') {
   //   into 'src'
@@ -56,7 +72,7 @@ task packageDeb(type: Deb) {
   // link('/etc/sudoers.d/conduit-agent',
   //     '/opt/conduit-agent/dist/sudoers')
 }
-// tasks.packageDeb.dependsOn installNpmDeps
+tasks.packageDeb.dependsOn stripBin
 
 // apply plugin: 'nebula.rpm'
 // task packageRpm(type: Rpm) {
