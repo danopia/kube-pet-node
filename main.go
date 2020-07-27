@@ -50,34 +50,12 @@ func main() {
 	}
 
 	// look up our VPN information
-	vpnIface, err := net.InterfaceByName(*vpnIfaceFlag)
+	nodeIP, err := fetchNodeAddressFromInterface(*vpnIfaceFlag)
 	if err != nil {
-		panic(err)
+		log.Println("WARN: failed to find Node IP from", *vpnIfaceFlag, ":", err)
+	} else {
+		log.Println("Discovered node IP:", nodeIP)
 	}
-	vpnAddrs, err := vpnIface.Addrs()
-	if err != nil {
-		panic(err)
-	}
-
-	// retrieve node address from the VPN info
-	var nodeIP net.IP
-	for _, addr := range vpnAddrs {
-		if net, ok := addr.(*net.IPNet); ok {
-			// log.Println(net, net.IP.IsGlobalUnicast())
-			if net.IP.IsGlobalUnicast() {
-				ones, bits := net.Mask.Size()
-				if ones == bits {
-					// a single addr, treat as node address
-					nodeIP = net.IP
-				} else {
-					log.Println("Skipping CIDR Addr", addr.String(), "on vpn interface")
-				}
-			}
-		} else {
-			log.Println("Skipping weird Addr", addr.String(), "on vpn interface")
-		}
-	}
-	log.Println("Node IP:", nodeIP)
 
 	// unix:/run/user/1000/podman/podman.sock
 	// tcp:127.0.0.1:8410
@@ -162,4 +140,35 @@ func main() {
 		// handle error
 	}
 	log.Println("exit")
+}
+
+func fetchNodeAddressFromInterface(ifaceName string) (net.IP, error) {
+	vpnIface, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		return nil, err
+	}
+	vpnAddrs, err := vpnIface.Addrs()
+	if err != nil {
+		return nil, err
+	}
+
+	// retrieve node address from the VPN info
+	for _, addr := range vpnAddrs {
+		if net, ok := addr.(*net.IPNet); ok {
+			// log.Println(net, net.IP.IsGlobalUnicast())
+			if net.IP.IsGlobalUnicast() {
+				ones, bits := net.Mask.Size()
+				if ones == bits {
+					// a single addr, treat as node address
+					return net.IP, nil
+				} else {
+					log.Println("Skipping CIDR Addr", addr.String(), "on vpn interface")
+				}
+			}
+		} else {
+			log.Println("Skipping weird Addr", addr.String(), "on vpn interface")
+		}
+	}
+
+	return nil, nil
 }
