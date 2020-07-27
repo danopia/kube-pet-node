@@ -32,12 +32,10 @@ task packageDeb(type: Deb) {
 
   postInstall file('gradle/dist/deb-postInstall.sh')
 
-  requires('adduser')
+  requires('adduser') // for postinst script
   requires('podman')
-  requires('wget')
-
+  requires('wget') // for upgrade script
   recommends('wireguard')
-  // recommends('podman')
   recommends('systemd')
 
   into '/opt/kube-pet-node'
@@ -79,56 +77,56 @@ task packageDeb(type: Deb) {
 }
 tasks.packageDeb.dependsOn stripBin
 
-// apply plugin: 'nebula.rpm'
-// task packageRpm(type: Rpm) {
-//   def buildId = System.getenv('BUILD_ID')
-//   if (buildId != null) {
-//     release = buildId
-//   }
-//   os LINUX
+apply plugin: 'nebula.rpm'
+task packageRpm(type: Rpm) {
+  def buildId = System.getenv('BUILD_ID')
+  if (buildId != null) {
+    release = buildId
+  }
+  os LINUX
+  arch X86_64
 
-//   preInstall file('dist/rpm-preInstall.sh')
-//   postInstall file('dist/rpm-postInstall.sh')
-//   preUninstall file('dist/rpm-preUninstall.sh')
-//   postUninstall file('dist/rpm-postUninstall.sh')
+  preInstall file('gradle/dist/rpm-preInstall.sh')
+  postInstall file('gradle/dist/rpm-postInstall.sh')
+  preUninstall file('gradle/dist/rpm-preUninstall.sh')
+  postUninstall file('gradle/dist/rpm-postUninstall.sh')
 
-//   requires('nodejs')
-//   recommends('wireguard')
-//   recommends('podman')
-//   recommends('systemd')
+  requires('podman')
+  recommends('wireguard')
+  recommends('systemd')
 
-//   into '/opt/conduit-agent'
-//   user 'root'
-//   permissionGroup 'root'
+  into '/opt/kube-pet-node'
+  user 'root'
+  permissionGroup 'root'
 
-//   from('src') {
-//     into 'src'
-//   }
-//   from('node_modules') {
-//     into 'node_modules'
-//   }
-//   from('package.json') {}
-//   from('package-lock.json') {}
+  from('.gogradle/kube-pet-node-linux-amd64') {
+    into 'bin'
+  }
+  link('/usr/bin/kube-pet-node',
+      '/opt/kube-pet-node/bin/kube-pet-node-linux-amd64')
 
-//   from('dist/unit-files') {
-//     createDirectoryEntry true
-//     permissionGroup 'conduit'
-//     fileMode 0460
-//     into 'unit-files'
-//   }
+  from('gradle/dist/node-upgrade.sh') {
+    into 'bin'
+  }
 
-//   from('dist/conduit-agent.service') {
-//     into 'dist'
-//     fileMode 0664
-//   }
-//   link('/usr/lib/systemd/system/conduit-agent.service',
-//       '/opt/conduit-agent/dist/conduit-agent.service')
+  from('gradle/dist/kube-podman.service') {
+    into '/usr/lib/systemd/system'
+    fileMode 0664
+  }
+  from('gradle/dist/kube-podman.socket') {
+    into '/usr/lib/systemd/system'
+    fileMode 0664
+  }
+  from('gradle/dist/kube-pet-node.service') {
+    into '/usr/lib/systemd/system'
+    fileMode 0664
+  }
 
-//   from('dist/sudoers') {
-//     into 'dist'
-//     fileMode 0440
-//   }
-//   link('/etc/sudoers.d/conduit-agent',
-//       '/opt/conduit-agent/dist/sudoers')
-// }
-// tasks.packageRpm.dependsOn installNpmDeps
+  from('gradle/dist/sudoers') {
+    into 'dist'
+    fileMode 0440
+  }
+  link('/etc/sudoers.d/kube-pet-node',
+      '/opt/kube-pet-node/dist/sudoers')
+}
+tasks.packageRpm.dependsOn stripBin
