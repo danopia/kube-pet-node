@@ -7,8 +7,8 @@ Requires=kube-podman.socket
 User=kube-pet
 Group=kube-pet
 WorkingDirectory=/opt/kube-pet-node
-ExecStart=/usr/bin/kube-pet-node
-Environment=CONDUIT_WS_URI=wss://conduit.wg69.net/websocket
+ExecStart=/usr/bin/kube-pet-node --podman-socket unix:/run/kube-podman/podman.sock
+# Environment=CONDUIT_WS_URI=wss://conduit.wg69.net/websocket
 Restart=always
 RestartSec=60
 
