@@ -1,7 +1,7 @@
 [Unit]
 Description=Join a node to Kubernetes without installing Kubernetes
 After=network.target
-Requires=podman.socket
+Requires=kube-podman.socket
 
 [Service]
 User=kube-pet

@@ -43,15 +43,16 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
         deb-systemd-helper unmask 'kube-podman.service' >/dev/null || true
         deb-systemd-helper unmask 'kube-podman.socket' >/dev/null || true
 
-        if deb-systemd-helper --quiet was-enabled 'kube-podman.socket'; then
-                deb-systemd-helper enable 'kube-podman.socket' >/dev/null || true
-        else
-                deb-systemd-helper update-state 'kube-podman.socket' >/dev/null || true
-        fi
         if deb-systemd-helper --quiet was-enabled 'kube-podman.service'; then
                 deb-systemd-helper enable 'kube-podman.service' >/dev/null || true
         else
                 deb-systemd-helper update-state 'kube-podman.service' >/dev/null || true
+        fi
+        if deb-systemd-helper --quiet was-enabled 'kube-podman.socket'; then
+                deb-systemd-helper enable 'kube-podman.socket' >/dev/null || true
+                systemctl daemon-reload && systemctl restart 'kube-podman.socket' || true
+        else
+                deb-systemd-helper update-state 'kube-podman.socket' >/dev/null || true
         fi
 
         # was-enabled defaults to true, so new installations run enable.
