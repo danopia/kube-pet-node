@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: kube-system
+  name: kube-pet-node
+data:
+  targetRelease: |
+    Version = 0.1.2-h32
+    GitHash = 7ab52ba
+    DebUrlAmd64 = https://s3-us-west-2.amazonaws.com/dist.stardustapp.run/deb/kube-pet-node_0.1.2-h32.7ab52ba_amd64.deb

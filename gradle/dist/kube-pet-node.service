@@ -1,0 +1,16 @@
+[Unit]
+Description=Join a node to Kubernetes without installing Kubernetes
+After=network.target
+Requires=podman.socket
+
+[Service]
+User=kube-pet
+Group=kube-pet
+WorkingDirectory=/opt/kube-pet-node
+ExecStart=/usr/bin/kube-pet-node
+Environment=CONDUIT_WS_URI=wss://conduit.wg69.net/websocket
+Restart=always
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target

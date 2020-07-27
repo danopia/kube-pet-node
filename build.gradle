@@ -30,13 +30,14 @@ task packageDeb(type: Deb) {
   }
   arch = 'amd64'
 
-  // postInstall file('dist/deb-postInstall.sh')
+  postInstall file('gradle/dist/deb-postInstall.sh')
 
-  // requires('nodejs')
   requires('adduser')
+  requires('podman')
+  requires('wget')
 
   recommends('wireguard')
-  recommends('podman')
+  // recommends('podman')
   recommends('systemd')
 
   into '/opt/kube-pet-node'
@@ -49,28 +50,32 @@ task packageDeb(type: Deb) {
   link('/usr/bin/kube-pet-node',
       '/opt/kube-pet-node/bin/kube-pet-node-linux-amd64')
 
-  // from('src') {
-  //   into 'src'
-  // }
-  // from('node_modules') {
-  //   into 'node_modules'
-  // }
-  // from('package.json') {}
-  // from('package-lock.json') {}
+  from('gradle/dist/node-upgrade.sh') {
+    into 'bin'
+  }
 
-  // from('dist/conduit-agent.service') {
-  //   into 'dist'
-  //   fileMode 0664
-  // }
-  // link('/usr/lib/systemd/system/conduit-agent.service',
-  //     '/opt/conduit-agent/dist/conduit-agent.service')
+  from('gradle/dist/kube-podman.service') {
+    into '/usr/lib/systemd/system'
+    fileMode 0664
+  }
+  from('gradle/dist/kube-podman.socket') {
+    into '/usr/lib/systemd/system'
+    fileMode 0664
+  }
+  from('gradle/dist/kube-pet-node.service') {
+    into '/usr/lib/systemd/system'
+    fileMode 0664
+  }
 
-  // from('dist/sudoers') {
-  //   into 'dist'
-  //   fileMode 0440
-  // }
-  // link('/etc/sudoers.d/conduit-agent',
-  //     '/opt/conduit-agent/dist/sudoers')
+  // user 'kube-pet'
+  // permissionGroup 'kube-pet'
+
+  from('gradle/dist/sudoers') {
+    into 'dist'
+    fileMode 0440
+  }
+  link('/etc/sudoers.d/kube-pet-node',
+      '/opt/kube-pet-node/dist/sudoers')
 }
 tasks.packageDeb.dependsOn stripBin
 
