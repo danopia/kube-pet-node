@@ -29,6 +29,11 @@ type KubeApi struct {
 
 func NewKubeApi(kubernetes *kubernetes.Clientset, podManager *pods.PodManager, nodeName string, nodeIP net.IP) (*KubeApi, error) {
 
+	if nodeIP == nil {
+		log.Println("WARN: kubeapi listening on all interfaces")
+		nodeIP = net.ParseIP("0.0.0.0")
+	}
+
 	keyStorage, err := NewKeyMaterialStorage("kubelet-server")
 	if err != nil {
 		return nil, err
