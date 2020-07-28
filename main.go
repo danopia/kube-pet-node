@@ -118,7 +118,7 @@ func main() {
 		}
 	}
 	if len(podNets) < 1 && maxPods > 0 {
-		log.Fatalln("WARN: I couldn't discover any pod networks! I'm going to refuse to run any pods.")
+		log.Println("WARN: I couldn't discover any pod networks! I'm going to refuse to run any pods.")
 		maxPods = 0
 	}
 	log.Println("Pod networks:", podNets)
