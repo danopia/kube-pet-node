@@ -96,9 +96,10 @@ func main() {
 
 	// discover CIDRs that pods can use
 	var podNets []net.IPNet
+	maxPods := *maxPodsFlag
 	cniNetworks, err := podman.NetworkInspect(ctx, *cniNetFlag)
 	if err != nil {
-		panic(err)
+		log.Println("WARN: failed to read CNI", *cniNetFlag, ":", err)
 	}
 	for _, cniNetwork := range cniNetworks {
 		for _, plugin := range cniNetwork.Plugins {
@@ -116,13 +117,14 @@ func main() {
 			}
 		}
 	}
-	if len(podNets) < 1 {
-		log.Fatalln("I couldn't discover any pod networks! How am I supposed to run pods?")
+	if len(podNets) < 1 && maxPods > 0 {
+		log.Fatalln("WARN: I couldn't discover any pod networks! I'm going to refuse to run any pods.")
+		maxPods = 0
 	}
 	log.Println("Pod networks:", podNets)
 
 	// construct the node
-	petNode, err := controller.NewPetNode(ctx, nodeName, podManager, clientset, *maxPodsFlag, nodeIP, podNets, *cniNetFlag)
+	petNode, err := controller.NewPetNode(ctx, nodeName, podManager, clientset, maxPods, nodeIP, podNets, *cniNetFlag)
 	if err != nil {
 		panic(err)
 	}
