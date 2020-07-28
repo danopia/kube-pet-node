@@ -20,11 +20,15 @@ case "$1" in
                 chmod -R g+rw /etc/wireguard
         fi
 
+        # give service a private read/write space
         if ! [ -d /opt/kube-pet-node/.cache ]; then
                 mkdir /opt/kube-pet-node/.cache
                 chown -R kube-pet:kube-pet /opt/kube-pet-node/.cache
                 chmod -R 0700 /opt/kube-pet-node/.cache
         fi
+
+        # allow managing the network without sudo
+        setcap cap_net_admin+ep "$(readlink /usr/bin/kube-pet-node)"
 
         # if [ ! -d /opt/kube-pet-node/unit-files ]; then
         #         mkdir /opt/kube-pet-node/unit-files
