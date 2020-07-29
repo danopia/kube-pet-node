@@ -1,0 +1,132 @@
+plugins {
+  id 'com.github.blindpirate.gogradle' version '0.11.4'
+  id 'nebula.ospackage' version '7.5.0'
+}
+
+golang {
+  packagePath = 'github.com/danopia/kube-pet-node'
+  goVersion = '1.13.4'
+}
+goBuild {
+  targetPlatform = ['linux-amd64']
+}
+installDependencies.enabled = false
+resolveBuildDependencies.enabled = false
+resolveTestDependencies.enabled = false
+
+task stripBin(type: Exec) {
+  workingDir ".gogradle"
+  commandLine 'strip', 'kube-pet-node-linux-amd64'
+}
+tasks.stripBin.dependsOn 'goBuild'
+
+apply plugin: 'nebula.deb'
+task packageDeb(type: Deb) {
+  def buildId = System.getenv('BUILD_ID')
+  if (buildId != null) {
+    release = buildId
+  } else {
+    release = 1
+  }
+  arch = 'amd64'
+
+  postInstall file('gradle/dist/deb-postInstall.sh')
+
+  requires('adduser') // for postinst script
+  requires('podman')
+  requires('wget') // for upgrade script
+  recommends('wireguard')
+  recommends('systemd')
+
+  into '/opt/kube-pet-node'
+  user 'root'
+  permissionGroup 'root'
+
+  from('.gogradle/kube-pet-node-linux-amd64') {
+    into 'bin'
+  }
+  link('/usr/bin/kube-pet-node',
+      '/opt/kube-pet-node/bin/kube-pet-node-linux-amd64')
+
+  from('gradle/dist/node-upgrade.sh') {
+    into 'bin'
+  }
+
+  from('gradle/dist/kube-podman.service') {
+    into '/usr/lib/systemd/system'
+    fileMode 0664
+  }
+  from('gradle/dist/kube-podman.socket') {
+    into '/usr/lib/systemd/system'
+    fileMode 0664
+  }
+  from('gradle/dist/kube-pet-node.service') {
+    into '/usr/lib/systemd/system'
+    fileMode 0664
+  }
+
+  // user 'kube-pet'
+  // permissionGroup 'kube-pet'
+
+  from('gradle/dist/sudoers') {
+    into 'dist'
+    fileMode 0440
+  }
+  link('/etc/sudoers.d/kube-pet-node',
+      '/opt/kube-pet-node/dist/sudoers')
+}
+tasks.packageDeb.dependsOn stripBin
+
+apply plugin: 'nebula.rpm'
+task packageRpm(type: Rpm) {
+  def buildId = System.getenv('BUILD_ID')
+  if (buildId != null) {
+    release = buildId
+  }
+  os LINUX
+  arch X86_64
+
+  preInstall file('gradle/dist/rpm-preInstall.sh')
+  postInstall file('gradle/dist/rpm-postInstall.sh')
+  preUninstall file('gradle/dist/rpm-preUninstall.sh')
+  postUninstall file('gradle/dist/rpm-postUninstall.sh')
+
+  requires('podman')
+  recommends('wireguard')
+  recommends('systemd')
+
+  into '/opt/kube-pet-node'
+  user 'root'
+  permissionGroup 'root'
+
+  from('.gogradle/kube-pet-node-linux-amd64') {
+    into 'bin'
+  }
+  link('/usr/bin/kube-pet-node',
+      '/opt/kube-pet-node/bin/kube-pet-node-linux-amd64')
+
+  from('gradle/dist/node-upgrade.sh') {
+    into 'bin'
+  }
+
+  from('gradle/dist/kube-podman.service') {
+    into '/usr/lib/systemd/system'
+    fileMode 0664
+  }
+  from('gradle/dist/kube-podman.socket') {
+    into '/usr/lib/systemd/system'
+    fileMode 0664
+  }
+  from('gradle/dist/kube-pet-node.service') {
+    into '/usr/lib/systemd/system'
+    fileMode 0664
+  }
+
+  from('gradle/dist/sudoers') {
+    into 'dist'
+    fileMode 0440
+  }
+  link('/etc/sudoers.d/kube-pet-node',
+      '/opt/kube-pet-node/dist/sudoers')
+}
+tasks.packageRpm.dependsOn stripBin
