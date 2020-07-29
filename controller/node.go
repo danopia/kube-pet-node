@@ -72,7 +72,6 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 			},
 		},
 		Spec: corev1.NodeSpec{
-			PodCIDR:    podCIDRs[0],
 			PodCIDRs:   podCIDRs,
 			ProviderID: "pet://" + nodeName,
 			Taints: []corev1.Taint{{
@@ -81,6 +80,10 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 				Effect: "NoSchedule",
 			}},
 		},
+	}
+
+	if len(podCIDRs) > 0 {
+		pNode.Spec.PodCIDR = podCIDRs[0]
 	}
 
 	conVersion, err := podManager.RuntimeVersionReport(ctx)
