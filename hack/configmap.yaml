@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: kube-system
+  name: kube-pet-node
+data:
+  TargetRelease: |
+    Version = 0.1.2-h44.7ab52ba
+    BaseUrl = https://s3-us-west-2.amazonaws.com/dist.stardustapp.run/
+    [Target]
+    OS = linux
+    Arch = amd64
+    DebUrl = deb/kube-pet-node_0.1.2-h44.a66d08a_amd64.deb
+    RpmUrl = rpm/kube-pet-node-0.1.2-h44.a66d08a.x86_64.rpm

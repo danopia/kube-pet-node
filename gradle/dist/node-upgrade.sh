@@ -36,6 +36,7 @@ case $SystemType in
     fi
 
     # try handing off the actual install so it restarting us doesn't interupt it too
+    # TODO: this doesn't leave room to add more dependencies to the .deb down the road
     if which systemd-run
     then systemd-run dpkg -i "$(pwd)/${PackageFilename}"
     else dpkg -i "${PackageFilename}"

@@ -26,6 +26,7 @@ import (
 
 	"github.com/danopia/kube-pet-node/controllers/firewall"
 	"github.com/danopia/kube-pet-node/controllers/kubeapi"
+	"github.com/danopia/kube-pet-node/controllers/autoupgrade"
 	"github.com/danopia/kube-pet-node/controllers/pods"
 	// "github.com/danopia/kube-pet-node/podman"
 )
@@ -182,6 +183,12 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 		return nil, err
 	}
 	go kubeApi.Run(ctx)
+
+	autoUpgrade, err := autoupgrade.NewAutoUpgrade(configMapInformer)
+	if err != nil {
+		return nil, err
+	}
+	go autoUpgrade.Run(ctx)
 
 	go nodeRunner.Run(ctx)
 	// err = nodeRunner.Run(ctx)

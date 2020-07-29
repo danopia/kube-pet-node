@@ -30,6 +30,7 @@ replace (
 require (
 	github.com/bep/debounce v1.2.0
 	github.com/containers/libpod v1.9.3
+	github.com/coreos/go-semver v0.3.0
 	github.com/go-ini/ini v1.57.0
 	github.com/google/nftables v0.0.0-20200316075819-7127d9d22474
 	github.com/gorilla/mux v1.7.4
