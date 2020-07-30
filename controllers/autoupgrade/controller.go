@@ -37,12 +37,12 @@ func NewAutoUpgrade(cmi corev1informers.ConfigMapInformer) (*AutoUpgrade, error)
 		return nil, err
 	}
 
-	// if isRunning, err := IsUnitRunning("kube-pet-node.service"); err != nil {
-	// 	return nil, err
-	// } else if !isRunning {
-	// 	log.Println("AutoUpgrade WARN: our systemd unit is not running")
-	// 	return &AutoUpgrade{}, nil
-	// }
+	if isRunning, err := IsUnitRunning("kube-pet-node.service"); err != nil {
+		return nil, err
+	} else if !isRunning {
+		log.Println("AutoUpgrade WARN: our systemd unit is not running")
+		return &AutoUpgrade{}, nil
+	}
 
 	controller := &AutoUpgrade{
 		IsCapable: true,
