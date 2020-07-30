@@ -3,7 +3,7 @@ package autoupgrade
 import (
 	"context"
 	"log"
-	// "time"
+	"time"
 	// "net"
 	// "net/http"
 	// "os"
@@ -17,17 +17,18 @@ import (
 )
 
 type AutoUpgrade struct {
-	IsActive bool
+	IsCapable bool
 	SelfVersion *semver.Version
-	TargetVersion *semver.Version
-	ConfigMapInformer corev1informers.ConfigMapInformer
+	// ConfigMapInformer corev1informers.ConfigMapInformer
+
+	releaseChan chan *TargetRelease
 }
 
 func NewAutoUpgrade(cmi corev1informers.ConfigMapInformer) (*AutoUpgrade, error) {
 
 	installedVersion, err := GetInstalledVersion("kube-pet-node")
 	if err != nil {
-		log.Println("AutoUpgrade: WARN: failed to find version, disabling.", err)
+		log.Println("AutoUpgrade WARN: failed to find installed version:", err)
 		return &AutoUpgrade{}, nil
 	}
 
@@ -36,59 +37,114 @@ func NewAutoUpgrade(cmi corev1informers.ConfigMapInformer) (*AutoUpgrade, error)
 		return nil, err
 	}
 
-	isRunning, err := IsUnitRunning("kube-pet-node.service")
-	if err != nil {
-		return nil, err
+	// if isRunning, err := IsUnitRunning("kube-pet-node.service"); err != nil {
+	// 	return nil, err
+	// } else if !isRunning {
+	// 	log.Println("AutoUpgrade WARN: our systemd unit is not running")
+	// 	return &AutoUpgrade{}, nil
+	// }
+
+	controller := &AutoUpgrade{
+		IsCapable: true,
+		SelfVersion: parsedVersion,
+		// ConfigMapInformer: cmi,
+
+		releaseChan: make(chan *TargetRelease, 0),
 	}
 
-	return &AutoUpgrade{
-		IsActive: isRunning,
-		SelfVersion: parsedVersion,
-		ConfigMapInformer: cmi,
-	}, nil
+	cmi.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(res interface{}) {
+			if res, ok := res.(*corev1.ConfigMap); ok {
+				controller.enqueueConfigMap(res)
+			}
+		},
+		UpdateFunc: func(before, after interface{}) {
+			if res, ok := after.(*corev1.ConfigMap); ok {
+				controller.enqueueConfigMap(res)
+			}
+		},
+		DeleteFunc: func(res interface{}) {
+			if res, ok := res.(*corev1.ConfigMap); ok {
+				if res.ObjectMeta.Namespace == "kube-system" && res.ObjectMeta.Name == "kube-pet-node" {
+					controller.releaseChan <- nil
+				}
+			}
+		},
+	})
+	log.Println("AutoUpgrade: Configured TargetRelease informer")
+
+	return controller, nil
+}
+
+func (ka *AutoUpgrade) enqueueConfigMap(res *corev1.ConfigMap) {
+	if res.ObjectMeta.Namespace == "kube-system" && res.ObjectMeta.Name == "kube-pet-node" {
+		if releaseStr, ok := res.Data["TargetRelease"]; ok {
+			if releaseInfo, err := ParseTargetRelease(releaseStr); err != nil {
+				log.Println("AutoUpgrade WARN: Failed to read ConfigMap:", err)
+			} else {
+				// Pass down the parsed info
+				ka.releaseChan <- releaseInfo
+				return
+			}
+		}
+		// If we couldn't find release info, still inform downstream
+		ka.releaseChan <- nil
+	}
 }
 
 func (ka *AutoUpgrade) Run(ctx context.Context) {
 
+	if !ka.IsCapable {
+		log.Println("AutoUpgrade: Leaving disabled for the lifetime of this process.")
+		return
+	}
 
+	var timerC <-chan time.Time
+	var targetRelease *TargetRelease
 
-	log.Println("AutoUpgrade: Setting up informer")
-	// ka.ConfigMapInformer.Informer().AddEventHandler(func(){})
-	ka.ConfigMapInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(res interface{}) {
-			if res, ok := res.(*corev1.ConfigMap); ok {
-				if res.ObjectMeta.Namespace == "kube-system" && res.ObjectMeta.Name == "kube-pet-node" {
-					if releaseInfo, err := ParseTargetRelease(res.Data["TargetRelease"]); err != nil {
-						log.Println("AutoUpgrade WARN: Failed to read ConfigMap:", err)
-					} else {
-						log.Fatalf("AutoUpgrade got target:", releaseInfo)
-					}
-				}
+	for {
+		select {
+		case targetRelease = <-ka.releaseChan:
+			// Cancel whatever timer we had anytime we get an update
+			timerC = nil
+
+			if targetRelease == nil {
+				log.Println("AutoUpgrade: received empty release info")
+				continue
 			}
-		},
-		DeleteFunc: func(interface{}) {
-			// ka.Debounce(ka.Sync)
-		},
-		UpdateFunc: func(before, after interface{}) {
-			// panic("TODO")
-			// Ignore notificatins to control-plane election endpoints.
-			//  "[T]here are plans for changing the leader election mechanism based on endpoints
-			//   in favour of a similar approach based on config maps.
-			//   This avoids continuously triggering “endpoint-changed” notifications
-			//   to kube-proxy and kube-dns"
-			if before, ok := before.(*corev1.Endpoints); ok {
-				if before.ObjectMeta.Namespace == "kube-system" {
-					if _, ok := before.ObjectMeta.Annotations["control-plane.alpha.kubernetes.io/leader"]; ok {
-						return
-					}
-				}
-				// log.Println("Updated:", before.ObjectMeta.Namespace, before.ObjectMeta.Name)
+			if !targetRelease.AutoUpgrade {
+				log.Println("AutoUpgrade: received disabled release info")
+				continue
 			}
 
-			// ka.Debounce(ka.Sync)
-		},
-	})
+			targetVersion, err := semver.NewVersion(targetRelease.Version)
+			if err != nil {
+				log.Println("AutoUpgrade WARN: failed to parse received release version", err)
+				continue
+			}
 
-	// log.Println("AutoUpgrade: Seeding debounce")
-	// ka.Debounce(ka.Sync)
+			if !ka.SelfVersion.LessThan(*targetVersion) {
+				log.Println("AutoUpgrade: Our version", ka.SelfVersion, "isn't older than target version", targetVersion)
+				continue
+			}
+			if !targetRelease.HasBuildForUs() {
+				log.Println("AutoUpgrade: Target version", targetVersion, "doesn't have a build for us")
+				continue
+			}
+
+			log.Println("AutoUpgrade: Version", targetVersion, "looks newer than our", ka.SelfVersion, "- scheduling upgrade")
+
+			// TODO: randomize this over like 60 seconds probably
+			timerC = time.After(5 * time.Second)
+
+		case <-timerC:
+			log.Println("AutoUpgrade: NOW INSTALLING", targetRelease.Version)
+
+			if err := targetRelease.ActuallyInstallThisReleaseNow(); err != nil {
+				log.Println("AutoUpgrade: Failed to perform upgrade:", err)
+			}
+			log.Println("AutoUpgrade: Okay, I tried doing a thing, I'm disabling for the rest of this process lifetime.")
+			return
+		}
+	}
 }

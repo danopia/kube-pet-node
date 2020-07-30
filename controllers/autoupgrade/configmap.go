@@ -1,20 +1,22 @@
 package autoupgrade
 
 import (
+	"runtime"
 
 	"github.com/go-ini/ini"
 )
 
-type PlatformCoord struct {
-	Os string
-	Arch string
-	Manager string
-}
-
 type TargetRelease struct {
 	Version string
 	BaseUrl string
-	Urls map[PlatformCoord] string
+	AutoUpgrade bool
+	Platforms []TargetPlatform
+}
+type TargetPlatform struct {
+	OS string
+	Arch string
+	DebUrl string
+	RpmUrl string
 }
 
 func ParseTargetRelease(data string) (*TargetRelease, error) {
@@ -30,28 +32,40 @@ func ParseTargetRelease(data string) (*TargetRelease, error) {
 		return nil, err
 	}
 
+	platformSects, err := file.SectionsByName("Platform")
+	if err != nil {
+		return nil, err
+	}
+
+	release.Platforms = make([]TargetPlatform, len(platformSects))
+	for idx, section := range platformSects {
+		if err := section.StrictMapTo(&release.Platforms[idx]); err != nil {
+			return nil, err
+		}
+	}
+
 	return release, nil
-
-
-	// states := make(map[string]string)
-	// for key, value := range data.KeysHash() {
-	// 	if strings.HasSuffix(key, "State") {
-	// 		newKey := strings.TrimSuffix(key, "State")
-	// 		states[newKey] = value
-	// 	}
-	// }
-
-
-	// panic("TODO")
-	// return nil, nil
 }
 
-/*
-    Version = 0.1.2-h44.7ab52ba
-    BaseUrl = https://s3-us-west-2.amazonaws.com/dist.stardustapp.run/
-    [Target]
-    OS = linux
-    Arch = amd64
-    DebUrl = deb/kube-pet-node_0.1.2-h44.a66d08a_amd64.deb
-    RpmUrl = rpm/kube-pet-node-0.1.2-h44.a66d08a.x86_64.rpm
-*/
+func (tr *TargetRelease) HasBuildForUs() bool {
+	return tr.GetOurBuildUrl() != ""
+}
+
+func (tr *TargetRelease) GetOurBuildUrl() string {
+	for _, plat := range tr.Platforms {
+		if plat.OS == runtime.GOOS && plat.Arch == runtime.GOARCH {
+			switch SystemType() {
+				case "Deb":
+					if plat.DebUrl != "" {
+						return tr.BaseUrl+plat.DebUrl
+					}
+				case "Rpm":
+					if plat.RpmUrl != "" {
+						return tr.BaseUrl+plat.RpmUrl
+					}
+				default: return ""
+			}
+		}
+	}
+	return ""
+}

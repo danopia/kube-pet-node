@@ -1,15 +1,17 @@
 package autoupgrade
 
-// import (
-// 	"os/exec"
-// )
+import (
+	"os/exec"
+	"fmt"
+)
 
-// func RunUpgrade() {
+func (tr *TargetRelease) ActuallyInstallThisReleaseNow() error {
 
-// 	out, err := exec.Command("date").Output()
-// 	if err != nil {
-// 			log.Fatal(err)
-// 	}
-// 	// fmt.Printf("The date is %s\n", out)
+	buildUrl := tr.GetOurBuildUrl()
+	if buildUrl == "" {
+		return fmt.Errorf("Can't install release %v because it lacks a URL for us", tr.Version)
+	}
 
-// }
+	cmd := exec.Command("sudo", "/opt/kube-pet-node/bin/node-upgrade.sh", tr.Version, SystemType(), buildUrl)
+	return cmd.Run()
+}

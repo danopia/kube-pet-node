@@ -124,7 +124,7 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 	// Create a shared informer factory for Kubernetes pods in the current namespace (if specified) and scheduled to the current node.
 	podInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(
 		kubernetes,
-		1*time.Minute, // resync period
+		5*time.Minute, // resync period
 		// kubeinformers.WithNamespace(""),
 		kubeinformers.WithTweakListOptions(func(options *metav1.ListOptions) {
 			options.FieldSelector = fields.OneTermEqualSelector("spec.nodeName", pNode.Name).String()
@@ -132,7 +132,7 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 	podInformer := podInformerFactory.Core().V1().Pods()
 
 	// Create another shared informer factory for Kubernetes secrets and configmaps (not subject to any selectors).
-	scmInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(kubernetes, 1*time.Minute)
+	scmInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(kubernetes, 15*time.Minute)
 	// Create a secret informer and a config map informer so we can pass their listers to the resource manager.
 	secretInformer := scmInformerFactory.Core().V1().Secrets()
 	configMapInformer := scmInformerFactory.Core().V1().ConfigMaps()
