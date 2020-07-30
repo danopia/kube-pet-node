@@ -80,9 +80,5 @@ func (ka *KubeApi) PerformCertificateFlow(ctx context.Context) error {
 	}
 	log.Println("Write newly minted kubeapi certificate out to disk :D")
 
-	if err := csrApi.Delete(csrName, &metav1.DeleteOptions{}); err != nil {
-		log.Println("WARN: CSR cleanup failed:", err)
-	}
-
 	return nil
 }
