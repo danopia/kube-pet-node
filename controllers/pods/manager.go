@@ -79,17 +79,17 @@ func NewPodManager(podmanClient *podman.PodmanClient, storage *PodSpecStorage) (
 		log.Println("Pods: Dangling pod rm result:", result)
 	}
 
-	eventStream, err := podmanClient.StreamEvents(context.TODO())
-	if err != nil {
-		return nil, err
-	}
-	// TODO: plumb these somewhere
-	go func() {
-		for evt := range eventStream {
-			log.Printf("Pods: Event %v %v %v %+v", evt.Type, evt.Action, evt.Status, evt.Actor)
-		}
-		log.Println("Pods: No more podman events")
-	}()
+	// eventStream, err := podmanClient.StreamEvents(context.TODO())
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// // TODO: plumb these somewhere
+	// go func() {
+	// 	for evt := range eventStream {
+	// 		log.Printf("Pods: Event %v %v %v %+v", evt.Type, evt.Action, evt.Status, evt.Actor)
+	// 	}
+	// 	log.Println("Pods: No more podman events")
+	// }()
 
 	return &PodManager{
 		podman:      podmanClient,
