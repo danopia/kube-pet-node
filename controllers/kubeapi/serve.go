@@ -3,6 +3,7 @@ package kubeapi
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -10,6 +11,7 @@ import (
 	"strconv"
 
 	// statsv1 "k8s.io/kubernetes/pkg/kubelet/apis/stats/v1alpha1"
+	// utilexec "k8s.io/utils/exec"
 
 	vkapi "github.com/virtual-kubelet/virtual-kubelet/node/api"
 
@@ -70,6 +72,11 @@ func MountApi(podManager *pods.PodManager) {
 				podman.DemuxRawStream(output, attach.Stdout(), attach.Stderr(), false)
 			}
 
+			if sessResult, err := session.Inspect(ctx); err != nil {
+				log.Println("kubeapi WARN: Post-exec inspection failed:", err)
+			} else if sessResult.ExitCode > 0 {
+				return exitError{sessResult.ExitCode}
+			}
 			return nil
 		},
 
@@ -135,4 +142,21 @@ type mux struct{}
 
 func (m mux) Handle(pattern string, handler http.Handler) {
 	http.Handle(pattern, handler)
+}
+
+type exitError struct {
+	status int
+}
+
+func (ee exitError) String() string {
+	return fmt.Sprintf("command terminated with exit code %v", ee.status)
+}
+func (ee exitError) Error() string {
+	return fmt.Sprintf("command terminated with exit code %v", ee.status)
+}
+func (ee exitError) Exited() bool {
+	return true
+}
+func (ee exitError) ExitStatus() int {
+	return ee.status
 }
