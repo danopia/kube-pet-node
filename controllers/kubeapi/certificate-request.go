@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"os/exec"
 
-	"github.com/go-ini/ini"
+	ini "gopkg.in/ini.v1"
 )
 
 func GenerateCertRequest(keyStorage *KeyMaterialStorage, paramsSource io.WriterTo) ([]byte, error) {

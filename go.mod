@@ -29,16 +29,33 @@ replace (
 
 require (
 	github.com/bep/debounce v1.2.0
-	github.com/containers/libpod v1.9.3
 	github.com/coreos/go-semver v0.3.0
-	github.com/go-ini/ini v1.57.0
+	github.com/fsnotify/fsnotify v1.4.9 // indirect
+	github.com/gogo/protobuf v1.3.1 // indirect
+	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef // indirect
+	github.com/golang/protobuf v1.3.2 // indirect
+	github.com/google/go-cmp v0.4.0 // indirect
 	github.com/google/nftables v0.0.0-20200316075819-7127d9d22474
-	github.com/gorilla/mux v1.7.4
+	github.com/gorilla/mux v1.7.4 // indirect
+	github.com/imdario/mergo v0.3.9 // indirect
+	github.com/json-iterator/go v1.1.9 // indirect
+	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
+	github.com/onsi/ginkgo v1.12.0 // indirect
+	github.com/onsi/gomega v1.9.0 // indirect
 	github.com/pbnjay/memory v0.0.0-20190104145345-974d429e7ae4
+	github.com/pkg/errors v0.9.1 // indirect
+	github.com/sirupsen/logrus v1.5.0 // indirect
+	github.com/stretchr/testify v1.5.1 // indirect
 	github.com/virtual-kubelet/virtual-kubelet v0.0.0-20200504180557-8fc8b69d8f53
+	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
+	go.opencensus.io v0.22.0 // indirect
+	golang.org/x/crypto v0.0.0-20200323165209-0ec3e9974c59 // indirect
+	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e // indirect
 	golang.org/x/sys v0.0.0-20200327173247-9dae0f8f5775
+	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
+	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
+	gopkg.in/ini.v1 v1.57.0
 	k8s.io/api v0.17.4
 	k8s.io/apimachinery v0.17.4
 	k8s.io/client-go v10.0.0+incompatible
-	k8s.io/kubernetes v1.15.2
 )

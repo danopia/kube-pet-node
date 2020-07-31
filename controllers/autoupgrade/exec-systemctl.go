@@ -5,7 +5,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/go-ini/ini"
+	ini "gopkg.in/ini.v1"
 )
 
 func IsUnitRunning(unitName string) (isRunning bool, err error) {
