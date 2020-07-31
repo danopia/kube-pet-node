@@ -23,7 +23,7 @@ func (ka *KubeApi) PerformCertificateFlow(ctx context.Context) error {
 		return err
 	}
 
-	csr, err := csrApi.Get(csrName, metav1.GetOptions{})
+	csr, err := csrApi.Get(ctx, csrName, metav1.GetOptions{})
 	if err != nil {
 		if !strings.Contains(err.Error(), "not found") { // TODO
 			return err
@@ -37,7 +37,7 @@ func (ka *KubeApi) PerformCertificateFlow(ctx context.Context) error {
 		}
 
 		// submit to API
-		csr, err = csrApi.Create(&certv1.CertificateSigningRequest{
+		csr, err = csrApi.Create(ctx, &certv1.CertificateSigningRequest{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: csrName,
 			},
@@ -50,7 +50,7 @@ func (ka *KubeApi) PerformCertificateFlow(ctx context.Context) error {
 					certv1.UsageServerAuth,
 				},
 			},
-		})
+		}, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}
@@ -65,7 +65,7 @@ func (ka *KubeApi) PerformCertificateFlow(ctx context.Context) error {
 		log.Println("CSR pending...")
 
 		time.Sleep(time.Second * 5)
-		csr, err = csrApi.Get(csrName, metav1.GetOptions{})
+		csr, err = csrApi.Get(ctx, csrName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
