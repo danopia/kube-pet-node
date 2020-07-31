@@ -10,10 +10,12 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pbnjay/memory"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/danopia/kube-pet-node/podman"
 )
@@ -78,42 +80,44 @@ func (np *PetNodeProvider) NotifyNodeStatus(ctx context.Context, f func(*corev1.
 			"cpu":               *resource.NewScaledQuantity(int64(runtime.NumCPU()), 0),
 			"memory":            *resource.NewQuantity(int64(memory.TotalMemory()), resource.BinarySI),
 			"pods":              np.maxPods,
-			"ephemeral-storage": resource.MustParse("0"), // TODO
+			"ephemeral-storage": resource.MustParse("10Gi"), // TODO
 			"hugepages-2Mi":     resource.MustParse("0"),
 		},
 		Allocatable: corev1.ResourceList{
 			"cpu":               resource.MustParse("1000m"),
 			"memory":            resource.MustParse("1000Mi"),
 			"pods":              np.maxPods,
-			"ephemeral-storage": resource.MustParse("0"),
+			"ephemeral-storage": resource.MustParse("1Gi"), // TODO
 			"hugepages-2Mi":     resource.MustParse("0"),
 		},
 		Conditions: []corev1.NodeCondition{
 			{
-				// lastHeartbeatTime: "2020-06-30T17:20:59Z"
-				// lastTransitionTime: "2020-05-18T22:36:38Z"
-				Message: "Hello World",
-				Reason:  "KubeletReady",
-				Status:  "True",
-				Type:    "Ready",
+				LastTransitionTime: metav1.NewTime(time.Now()),
+				Message:            "Hello World",
+				Reason:             "KubeletReady",
+				Status:             "True",
+				Type:               "Ready",
 			},
 			{
-				Message: "Hello World",
-				Reason:  "OK",
-				Status:  "False",
-				Type:    "MemoryPressure",
+				LastTransitionTime: metav1.NewTime(time.Now()),
+				Message:            "Hello World",
+				Reason:             "OK",
+				Status:             "False",
+				Type:               "MemoryPressure",
 			},
 			{
-				Message: "Hello World",
-				Reason:  "OK",
-				Status:  "False",
-				Type:    "DiskPressure",
+				LastTransitionTime: metav1.NewTime(time.Now()),
+				Message:            "Hello World",
+				Reason:             "OK",
+				Status:             "False",
+				Type:               "DiskPressure",
 			},
 			{
-				Message: "Hello World",
-				Reason:  "OK",
-				Status:  "False",
-				Type:    "PIDPressure",
+				LastTransitionTime: metav1.NewTime(time.Now()),
+				Message:            "Hello World",
+				Reason:             "OK",
+				Status:             "False",
+				Type:               "PIDPressure",
 			},
 		},
 		Images: localImagesMapped,

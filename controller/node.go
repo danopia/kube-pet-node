@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net"
+	"runtime"
 	"time"
 
 	// "k8s.io/client-go/tools/clientcmd"
@@ -24,9 +25,9 @@ import (
 
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
+	"github.com/danopia/kube-pet-node/controllers/autoupgrade"
 	"github.com/danopia/kube-pet-node/controllers/firewall"
 	"github.com/danopia/kube-pet-node/controllers/kubeapi"
-	"github.com/danopia/kube-pet-node/controllers/autoupgrade"
 	"github.com/danopia/kube-pet-node/controllers/pods"
 	// "github.com/danopia/kube-pet-node/podman"
 )
@@ -66,15 +67,21 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nodeName,
 			Labels: map[string]string{
-				"purpose":                "pet",
-				"type":                   "virtual-kubelet",
+				"purpose":  "pet",
+				"type":     "virtual-kubelet",
+				"lifetime": "persistent",
+
 				"kubernetes.io/role":     "pet",
 				"kubernetes.io/hostname": nodeName,
+				"kubernetes.io/arch":     runtime.GOARCH,
+				"kubernetes.io/os":       runtime.GOOS,
 			},
+			Annotations: map[string]string{},
 		},
 		Spec: corev1.NodeSpec{
-			PodCIDRs:   podCIDRs,
-			ProviderID: "pet://" + nodeName,
+			PodCIDRs: podCIDRs,
+			// If ProviderID isn't a gce:// URI, the GKE autoscaler breaks in half as long as we're Ready
+			ProviderID: "gce://kube-pet-node/bare-metal/" + nodeName,
 			Taints: []corev1.Taint{{
 				Key:    "kubernetes.io/pet-node",
 				Value:  nodeName,
