@@ -79,8 +79,7 @@ type ExecResizeOptions struct {
 }
 
 func (es *ExecSession) Resize(ctx context.Context, newSize *ExecResizeOptions) error {
-	var out struct{}
-	return es.podmanClient.performPost(ctx, "/libpod/exec/"+es.Id+"/resize", newSize, &out)
+	return es.podmanClient.performPost(ctx, "/libpod/exec/"+es.Id+"/resize", newSize, nil)
 }
 
 func (es *ExecSession) Start(ctx context.Context) (io.Writer, io.ReadCloser, error) {

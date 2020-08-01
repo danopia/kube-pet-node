@@ -40,7 +40,7 @@ func (pc *PodmanClient) performRequest(req *http.Request, path string) (*http.Re
 	if resp.StatusCode == 101 || (resp.StatusCode >= 200 && resp.StatusCode < 300) {
 		return resp, nil
 	} else if resp.StatusCode == 304 {
-		// No Content seemingly doesn't have an error payload even though swagger shows one
+		// Not Modified seemingly doesn't have an error payload even though swagger shows one
 		return resp, &ApiError{
 			request: req,
 			Cause:   resp.Status,
@@ -64,7 +64,15 @@ func (pc *PodmanClient) performJsonRequest(req *http.Request, path string, outpu
 		return err
 	}
 
-	return json.NewDecoder(resp.Body).Decode(output)
+	if output == nil {
+		if resp.StatusCode == 201 || resp.StatusCode == 204 {
+			return nil
+		} else {
+			return fmt.Errorf("Client caller didn't expect a body, but we got an HTTP %v", resp.StatusCode)
+		}
+	} else {
+		return json.NewDecoder(resp.Body).Decode(output)
+	}
 }
 
 type ApiError struct {
