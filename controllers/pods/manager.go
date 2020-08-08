@@ -69,6 +69,7 @@ func NewPodManager(podmanClient *podman.PodmanClient, storage *PodSpecStorage) (
 			}
 		}
 	}
+	log.Println("Pods: There are", len(knownPods), "known pods")
 
 	for coord, foundPod := range foundPodMap {
 		log.Println("Pods: Found dangling pod", coord, "that wasn't stored, deleting from system")
@@ -79,18 +80,23 @@ func NewPodManager(podmanClient *podman.PodmanClient, storage *PodSpecStorage) (
 		log.Println("Pods: Dangling pod rm result:", result)
 	}
 
-	// eventStream, err := podmanClient.StreamEvents(context.TODO())
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// // TODO: plumb these somewhere
-	// go func() {
-	// 	for evt := range eventStream {
-	// 		log.Printf("Pods: Event %v %v %v %+v", evt.Type, evt.Action, evt.Status, evt.Actor)
-	// 	}
-	// 	log.Println("Pods: No more podman events")
-	// }()
+	// foundVols, err := podmanClient.VolumeList(context.TODO(), map[string][]string{"tag"})
 
+	// starting in podman 2.0.3 / 2.0.4, the events response header isn't flushed until the first event happens
+	go func() error {
+		eventStream, err := podmanClient.StreamEvents(context.TODO())
+		if err != nil {
+			return err
+		}
+		// TODO: plumb these somewhere
+		for evt := range eventStream {
+			log.Printf("Pods: Event %v %v %v %+v", evt.Type, evt.Action, evt.Status, evt.Actor)
+		}
+		log.Println("Pods: No more podman events")
+		return nil
+	}()
+
+	log.Println("Creating PodManager")
 	return &PodManager{
 		podman:      podmanClient,
 		specStorage: storage,
