@@ -51,6 +51,18 @@ type ImageSummary struct {
 // Prune(ctx context.Context, opts ImagePruneOptions) (*ImagePruneReport, error)
 
 // Pull(ctx context.Context, rawImage string, opts ImagePullOptions) (*ImagePullReport, error)
+func (pc *PodmanClient) Pull(ctx context.Context, reference string) ([]ImagePullReport, error) {
+	encoded, err := UrlEncoded(reference)
+	if err != nil {
+		return nil, err
+	}
+
+	var out []ImagePullReport
+	return out, pc.performPost(ctx, "/libpod/images/pull?reference="+encoded, struct{}{}, &out)
+}
+type ImagePullReport struct {
+	Id string
+}
 
 // Push(ctx context.Context, source string, destination string, opts ImagePushOptions) error
 

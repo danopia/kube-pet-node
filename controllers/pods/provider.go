@@ -60,12 +60,49 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 	log.Printf("pod create %+v", creation)
 
 	for _, conSpec := range pod.Spec.Containers {
+
+		if conSpec.ImagePullPolicy == corev1.PullAlways {
+			// Normal  Pulling    35s   kubelet, gke-dust-build4-3af41eb2-pg8g  Pulling image "gcr.io/stardust-156404/build-shell"
+
+			imgIds, err := d.podman.Pull(ctx, conSpec.Image)
+			if err != nil {
+				log.Println("TODO: image pull", conSpec.Image, "err", err)
+				return err
+			}
+			log.Println("Pulled images", imgIds, "for", conSpec)
+
+			// Normal  Pulled     5s    kubelet, gke-dust-build4-3af41eb2-pg8g  Successfully pulled image "gcr.io/stardust-156404/build-shell"
+		}
+
 		conCreation, err := d.podman.ContainerCreate(ctx, ConvertContainerConfig(pod, &conSpec, creation.Id))
 		if err != nil {
-			log.Println("container create err", err)
-			return err
+
+			if strings.HasSuffix(err.Error(), "no such image") && conSpec.ImagePullPolicy == corev1.PullIfNotPresent {
+
+				// Normal  Pulling    35s   kubelet, gke-dust-build4-3af41eb2-pg8g  Pulling image "gcr.io/stardust-156404/build-shell"
+
+				imgIds, err := d.podman.Pull(ctx, conSpec.Image)
+				if err != nil {
+					log.Println("TODO: image pull", conSpec.Image, "err", err)
+					return err
+				}
+				log.Println("Pulled images", imgIds, "for", conSpec)
+
+				// Normal  Pulled     5s    kubelet, gke-dust-build4-3af41eb2-pg8g  Successfully pulled image "gcr.io/stardust-156404/build-shell"
+
+				conCreation, err = d.podman.ContainerCreate(ctx, ConvertContainerConfig(pod, &conSpec, creation.Id))
+				if err != nil {
+					log.Println("container create err", err)
+					return err
+				}
+
+			} else {
+				log.Println("container create err", err)
+				return err
+			}
 		}
 		log.Printf("container create %+v", conCreation)
+		// Normal  Created    5s    kubelet, gke-dust-build4-3af41eb2-pg8g  Created container build-shell
 	}
 
 	now := metav1.NewTime(time.Now())
@@ -172,6 +209,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 					StartedAt: now,
 				},
 			}
+			// Normal  Started    5s    kubelet, gke-dust-build4-3af41eb2-pg8g  Started container build-shell
 		} else {
 			log.Println("Warn: failed to match container", cs.Name, "from", containerInspects)
 		}
