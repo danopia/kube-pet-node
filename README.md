@@ -28,16 +28,22 @@ I'm just tryina run some high-resource stuff out of the cloud so it's cheaper.
 * [ ] expose static pod representing the host system (host exec & dmesg logs)
   * (static pods have annotations incl. `kubernetes.io/config.source`)
 * [ ] emit Event resources just like kubelet
+  * [ ] image pulling
+  * [ ] container lifecycle
+* [ ] image pull backoff
+* [ ] restart failed containers
+* [ ] support imagepullsecrets
 * [x] require as few permissions as possible - non-root, plus CAP_NET_ADMIN and access to a root podman
 * [ ] support configmap volumes
 * [ ] support secrets volumes
 * [ ] support downward IP in envars
+* [x] support self-upgrading the node itself, on demand (e.g. update target version in a configmap)
 
 ### stretch goals
 * report pod and node metrics
 * update mounted configmaps/secrets in pods
-* support self-upgrading the node itself, on demand (e.g. update target version in a configmap)
 * support init containers on pods (and eventually ephemeral containers)
+* support container readiness and liveness probes
 * kubectl port-forward
 * create CRDs to observe and maybe manipulate hardware devices (disk drives, TV tuners, etc)
   * loops probably distributed as a daemonset/deployment, even if it made in-project
