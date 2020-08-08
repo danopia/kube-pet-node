@@ -1,8 +1,8 @@
 package autoupgrade
 
 import (
-	"os/exec"
 	"log"
+	"os/exec"
 	"strings"
 
 	ini "gopkg.in/ini.v1"

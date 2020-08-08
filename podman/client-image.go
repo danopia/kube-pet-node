@@ -60,6 +60,7 @@ func (pc *PodmanClient) Pull(ctx context.Context, reference string) ([]ImagePull
 	var out []ImagePullReport
 	return out, pc.performPost(ctx, "/libpod/images/pull?reference="+encoded, struct{}{}, &out)
 }
+
 type ImagePullReport struct {
 	Id string
 }

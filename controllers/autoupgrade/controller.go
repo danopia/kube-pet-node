@@ -9,15 +9,15 @@ import (
 	// "os"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/cache"
 	corev1informers "k8s.io/client-go/informers/core/v1"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/coreos/go-semver/semver"
 	// "github.com/bep/debounce"
 )
 
 type AutoUpgrade struct {
-	IsCapable bool
+	IsCapable   bool
 	SelfVersion *semver.Version
 	// ConfigMapInformer corev1informers.ConfigMapInformer
 
@@ -45,7 +45,7 @@ func NewAutoUpgrade(cmi corev1informers.ConfigMapInformer) (*AutoUpgrade, error)
 	}
 
 	controller := &AutoUpgrade{
-		IsCapable: true,
+		IsCapable:   true,
 		SelfVersion: parsedVersion,
 		// ConfigMapInformer: cmi,
 

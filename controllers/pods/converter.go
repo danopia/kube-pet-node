@@ -167,7 +167,7 @@ func ConvertContainerConfig(pod *corev1.Pod, conSpec *corev1.Container, podId st
 
 		ContainerResourceConfig: podman.ContainerResourceConfig{
 			ResourceLimits: resources,
-			OOMScoreAdj: &oomScoreAdjust,
+			OOMScoreAdj:    &oomScoreAdjust,
 		},
 
 		ContainerCgroupConfig: podman.ContainerCgroupConfig{
@@ -200,7 +200,6 @@ func ConvertContainerConfig(pod *corev1.Pod, conSpec *corev1.Container, podId st
 	// TTY
 }
 
-
 // Via https://github.com/kubernetes/kubernetes/blob/master/pkg/kubelet/qos/policy.go
 
 const (
@@ -208,6 +207,7 @@ const (
 	guaranteedOOMScoreAdj int = -998
 	besteffortOOMScoreAdj int = 1000
 )
+
 func GetContainerOOMScoreAdjust(pod *corev1.Pod, container *corev1.Container, memoryCapacity int64) int {
 	if *pod.Spec.Priority >= int32(2*1000000000) {
 		return guaranteedOOMScoreAdj
@@ -234,7 +234,6 @@ func GetContainerOOMScoreAdjust(pod *corev1.Pod, container *corev1.Container, me
 	}
 	return int(oomScoreAdjust)
 }
-
 
 // Via https://github.com/kubernetes/kubernetes/blob/master/pkg/kubelet/kuberuntime/helpers_linux.go
 

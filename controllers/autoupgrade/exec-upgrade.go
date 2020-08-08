@@ -1,8 +1,8 @@
 package autoupgrade
 
 import (
-	"os/exec"
 	"fmt"
+	"os/exec"
 )
 
 func (tr *TargetRelease) ActuallyInstallThisReleaseNow() error {

@@ -7,14 +7,14 @@ import (
 )
 
 type TargetRelease struct {
-	Version string
-	BaseUrl string
+	Version     string
+	BaseUrl     string
 	AutoUpgrade bool
-	Platforms []TargetPlatform
+	Platforms   []TargetPlatform
 }
 type TargetPlatform struct {
-	OS string
-	Arch string
+	OS     string
+	Arch   string
 	DebUrl string
 	RpmUrl string
 }
@@ -55,15 +55,16 @@ func (tr *TargetRelease) GetOurBuildUrl() string {
 	for _, plat := range tr.Platforms {
 		if plat.OS == runtime.GOOS && plat.Arch == runtime.GOARCH {
 			switch SystemType() {
-				case "Deb":
-					if plat.DebUrl != "" {
-						return tr.BaseUrl+plat.DebUrl
-					}
-				case "Rpm":
-					if plat.RpmUrl != "" {
-						return tr.BaseUrl+plat.RpmUrl
-					}
-				default: return ""
+			case "Deb":
+				if plat.DebUrl != "" {
+					return tr.BaseUrl + plat.DebUrl
+				}
+			case "Rpm":
+				if plat.RpmUrl != "" {
+					return tr.BaseUrl + plat.RpmUrl
+				}
+			default:
+				return ""
 			}
 		}
 	}

@@ -1,10 +1,10 @@
 package autoupgrade
 
 import (
-	"strings"
+	"fmt"
 	"os/exec"
 	"regexp"
-	"fmt"
+	"strings"
 )
 
 var hasDpkg bool
