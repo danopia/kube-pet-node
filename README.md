@@ -28,7 +28,7 @@ I'm just tryina run some high-resource stuff out of the cloud so it's cheaper.
 * [ ] expose static pod representing the host system (host exec & dmesg logs)
   * (static pods have annotations incl. `kubernetes.io/config.source`)
 * [ ] emit Event resources just like kubelet
-  * [ ] image pulling
+  * [x] image pulling
   * [ ] container lifecycle
 * [ ] image pull backoff
 * [ ] restart failed containers
