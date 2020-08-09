@@ -5,10 +5,11 @@ metadata:
   name: kube-pet-node
 data:
   TargetRelease: |
-    Version = 0.1.2-h44.7ab52ba
+    Version = 0.1.2-h52.48ffc84
     BaseUrl = https://s3-us-west-2.amazonaws.com/dist.stardustapp.run/
-    [Target]
+    AutoUpgrade = true
+    [Platform]
     OS = linux
     Arch = amd64
-    DebUrl = deb/kube-pet-node_0.1.2-h44.a66d08a_amd64.deb
-    RpmUrl = rpm/kube-pet-node-0.1.2-h44.a66d08a.x86_64.rpm
+    DebUrl = deb/kube-pet-node_0.1.2-h52.48ffc84_amd64.deb
+    RpmUrl = rpm/kube-pet-node-0.1.2-h52.48ffc84.x86_64.rpm
