@@ -9,16 +9,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	// // coordv1 "k8s.io/api/coordination/v1beta1"
-	// "k8s.io/apimachinery/pkg/api/resource"
-	// corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
-	// // corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
-	// kubeinformers "k8s.io/client-go/informers"
-	// "k8s.io/apimachinery/pkg/fields"
-	// "k8s.io/client-go/kubernetes/scheme"
-	// "k8s.io/client-go/tools/record"
-	// "github.com/virtual-kubelet/virtual-kubelet/node"
-	// // "github.com/vi	rtual-kubelet/virtual-kubelet/log"
+	"k8s.io/client-go/tools/record"
 
 	"github.com/danopia/kube-pet-node/podman"
 )
@@ -26,16 +17,18 @@ import (
 type PodmanProvider struct {
 	podman  *podman.PodmanClient
 	manager *PodManager
+	events  record.EventRecorder
 	cniNet  string
 	// pods        map[string]*corev1.Pod
 	podNotifier func(*corev1.Pod)
 	// specStorage *PodSpecStorage
 }
 
-func NewPodmanProvider(podManager *PodManager, cniNet string) *PodmanProvider {
+func NewPodmanProvider(podManager *PodManager, events record.EventRecorder, cniNet string) *PodmanProvider {
 	return &PodmanProvider{
 		podman:  podManager.podman,
 		manager: podManager,
+		events:  events,
 		cniNet:  cniNet,
 		// pods:        make(map[string]*corev1.Pod),
 		podNotifier: func(*corev1.Pod) {},
@@ -51,6 +44,16 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 	}
 	log.Println("Pod", podCoord, "registered")
 
+	podRef := &corev1.ObjectReference{
+		APIVersion:      "v1",
+		Kind:            "Pod",
+		Namespace:       pod.ObjectMeta.Namespace,
+		Name:            pod.ObjectMeta.Name,
+		UID:             pod.ObjectMeta.UID,
+		ResourceVersion: pod.ObjectMeta.ResourceVersion,
+		// FieldPath:        "spec.containers{app}",
+	}
+
 	dnsServer := net.ParseIP("10.6.0.10") // TODO
 	creation, err := d.podman.PodCreate(ctx, ConvertPodConfig(pod, dnsServer, d.cniNet))
 	if err != nil {
@@ -62,7 +65,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 	for _, conSpec := range pod.Spec.Containers {
 
 		if conSpec.ImagePullPolicy == corev1.PullAlways {
-			// Normal  Pulling    35s   kubelet, gke-dust-build4-3af41eb2-pg8g  Pulling image "gcr.io/stardust-156404/build-shell"
+			d.events.Eventf(podRef, corev1.EventTypeNormal, "Pulling", "Pulling image \"%s\"", conSpec.Image)
 
 			imgIds, err := d.podman.Pull(ctx, conSpec.Image)
 			if err != nil {
@@ -71,7 +74,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 			}
 			log.Println("Pulled images", imgIds, "for", conSpec)
 
-			// Normal  Pulled     5s    kubelet, gke-dust-build4-3af41eb2-pg8g  Successfully pulled image "gcr.io/stardust-156404/build-shell"
+			d.events.Eventf(podRef, corev1.EventTypeNormal, "Pulled", "Successfully pulled image \"%s\"", conSpec.Image)
 		}
 
 		conCreation, err := d.podman.ContainerCreate(ctx, ConvertContainerConfig(pod, &conSpec, creation.Id))
@@ -79,7 +82,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 
 			if strings.HasSuffix(err.Error(), "no such image") && conSpec.ImagePullPolicy == corev1.PullIfNotPresent {
 
-				// Normal  Pulling    35s   kubelet, gke-dust-build4-3af41eb2-pg8g  Pulling image "gcr.io/stardust-156404/build-shell"
+				d.events.Eventf(podRef, corev1.EventTypeNormal, "Pulling", "Pulling image \"%s\"", conSpec.Image)
 
 				imgIds, err := d.podman.Pull(ctx, conSpec.Image)
 				if err != nil {
@@ -88,7 +91,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 				}
 				log.Println("Pulled images", imgIds, "for", conSpec)
 
-				// Normal  Pulled     5s    kubelet, gke-dust-build4-3af41eb2-pg8g  Successfully pulled image "gcr.io/stardust-156404/build-shell"
+				d.events.Eventf(podRef, corev1.EventTypeNormal, "Pulled", "Successfully pulled image \"%s\"", conSpec.Image)
 
 				conCreation, err = d.podman.ContainerCreate(ctx, ConvertContainerConfig(pod, &conSpec, creation.Id))
 				if err != nil {
@@ -102,7 +105,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 			}
 		}
 		log.Printf("container create %+v", conCreation)
-		// Normal  Created    5s    kubelet, gke-dust-build4-3af41eb2-pg8g  Created container build-shell
+		d.events.Eventf(podRef, corev1.EventTypeNormal, "Created", "Created container %s", conSpec.Name)
 	}
 
 	now := metav1.NewTime(time.Now())
@@ -209,7 +212,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 					StartedAt: now,
 				},
 			}
-			// Normal  Started    5s    kubelet, gke-dust-build4-3af41eb2-pg8g  Started container build-shell
+			d.events.Eventf(podRef, corev1.EventTypeNormal, "Started", "Started container %s", cs.Name)
 		} else {
 			log.Println("Warn: failed to match container", cs.Name, "from", containerInspects)
 		}

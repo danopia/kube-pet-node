@@ -170,7 +170,7 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 	// setup other things
 	podRunner, err := node.NewPodController(node.PodControllerConfig{
 		PodClient: kubernetes.CoreV1(),
-		Provider:  pods.NewPodmanProvider(podManager, cniNet),
+		Provider:  pods.NewPodmanProvider(podManager, kubeletEvents, cniNet),
 
 		PodInformer:       podInformer,
 		EventRecorder:     kubeletEvents,
@@ -198,11 +198,6 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 	go autoUpgrade.Run(ctx)
 
 	go nodeRunner.Run(ctx)
-	// err = nodeRunner.Run(ctx)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// log.Println("RUnning...")
 
 	go podRunner.Run(ctx, 1) // number of sync workers
 	log.Println("Starting...")
