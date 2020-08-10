@@ -119,6 +119,13 @@ func (np *PetNodeProvider) NotifyNodeStatus(ctx context.Context, f func(*corev1.
 				Status:             "False",
 				Type:               "PIDPressure",
 			},
+			{
+				LastTransitionTime: metav1.NewTime(time.Now()),
+				Message:            "Hello World",
+				Reason:             "OK",
+				Status:             "False",
+				Type:               "NetworkUnavailable",
+			},
 		},
 		Images: localImagesMapped,
 		NodeInfo: corev1.NodeSystemInfo{
