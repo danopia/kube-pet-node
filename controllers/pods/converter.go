@@ -118,6 +118,41 @@ func ConvertContainerConfig(pod *corev1.Pod, conSpec *corev1.Container, podId st
 	// TODO: HugepageLimits = GetHugepageLimitsFromResources(container.Resources)
 	oomScoreAdjust := GetContainerOOMScoreAdjust(pod, conSpec, int64(memory.TotalMemory()))
 
+	mounts := make([]podman.Mount, 0)
+	volumes := make([]*podman.NamedVolume, 0)
+
+	for _, volMount := range conSpec.VolumeMounts {
+		var volSource *corev1.Volume = nil
+		for _, volume := range pod.Spec.Volumes {
+			if volume.Name == volMount.Name {
+				volSource = &volume
+				break
+			}
+			log.Println("WARN: VolumeMount", volMount.Name, "couldn't be correlated with a Volume")
+		}
+		if volSource != nil {
+
+			if volSource.VolumeSource.HostPath != nil {
+				// TODO: volSource.VolumeSource.HostPath.Type
+				flags := "rw"
+				if volMount.ReadOnly {
+					flags = "ro"
+				}
+
+				mounts = append(mounts, podman.Mount{
+					Type:        "bind",
+					Source:      volSource.VolumeSource.HostPath.Path + volMount.SubPath,
+					Destination: volMount.MountPath,
+					Options:     []string{flags},
+				})
+
+				continue
+			}
+
+			log.Println("TODO: Volume", volMount.Name, "isn't supported!")
+		}
+	}
+
 	return &podman.SpecGenerator{
 		ContainerBasicConfig: podman.ContainerBasicConfig{
 			Name:       key + "_" + conSpec.Name,
@@ -154,8 +189,8 @@ func ConvertContainerConfig(pod *corev1.Pod, conSpec *corev1.Container, podId st
 		ContainerStorageConfig: podman.ContainerStorageConfig{
 			Image: conSpec.Image,
 			// ImageVolumeMode string `json:"image_volume_mode,omitempty"`
-			// Mounts []Mount `json:"mounts,omitempty"`
-			// Volumes []*NamedVolume `json:"volumes,omitempty"`
+			Mounts:  mounts,
+			Volumes: volumes,
 			// Devices []LinuxDevice `json:"devices,omitempty"`
 			// IpcNS Namespace `json:"ipcns,omitempty"`
 			// ShmSize *int64 `json:"shm_size,omitempty"`
