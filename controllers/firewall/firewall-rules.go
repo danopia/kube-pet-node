@@ -276,6 +276,7 @@ func (fc *FirewallController) BuildConfig(nft *NftWriter) error {
 	nft.AddRuleWithComment(rule.Counter().Masquerade(), "Foreign traffic from us to the cluster")
 	nft.EndChain()
 
+	///////////////////////////////////////////////////////////////
 	// Static hook chains that send packets into our actual chains
 
 	// TODO: only jump to cluster-ips chain if daddr has cluster-ip prefix
@@ -288,7 +289,7 @@ func (fc *FirewallController) BuildConfig(nft *NftWriter) error {
 		Hooknum:  nftables.ChainHookForward,
 		Priority: nftables.ChainPriorityFilter,
 	})
-	nft.AddRule(rule.JumpToChain("cluster-ips-filter"))
+	nft.AddRule(rule.JumpToChain("cluster-ips-filter")) // TODO: cluster IPs CIDR check
 	nft.EndChain()
 
 	nft.StartChain(&nftables.Chain{
@@ -297,7 +298,7 @@ func (fc *FirewallController) BuildConfig(nft *NftWriter) error {
 		Hooknum:  nftables.ChainHookOutput,
 		Priority: nftables.ChainPriorityFilter,
 	})
-	nft.AddRule(rule.JumpToChain("cluster-ips-filter"))
+	nft.AddRule(rule.JumpToChain("cluster-ips-filter")) // TODO: cluster IPs CIDR check
 	nft.EndChain()
 
 	nft.StartChain(&nftables.Chain{
@@ -306,7 +307,7 @@ func (fc *FirewallController) BuildConfig(nft *NftWriter) error {
 		Hooknum:  nftables.ChainHookPrerouting,
 		Priority: nftables.ChainPriorityNATDest,
 	})
-	nft.AddRule(rule.JumpToChain("cluster-ips-dnat"))
+	nft.AddRule(rule.JumpToChain("cluster-ips-dnat")) // TODO: cluster IPs CIDR check
 	nft.EndChain()
 
 	nft.StartChain(&nftables.Chain{
@@ -315,7 +316,7 @@ func (fc *FirewallController) BuildConfig(nft *NftWriter) error {
 		Hooknum:  nftables.ChainHookOutput,
 		Priority: nftables.ChainPriorityMangle,
 	})
-	nft.AddRule(rule.JumpToChain("cluster-ips-dnat"))
+	nft.AddRule(rule.JumpToChain("cluster-ips-dnat")) // TODO: cluster IPs CIDR check
 	nft.EndChain()
 
 	nft.StartChain(&nftables.Chain{
@@ -324,8 +325,13 @@ func (fc *FirewallController) BuildConfig(nft *NftWriter) error {
 		Hooknum:  nftables.ChainHookPostrouting,
 		Priority: nftables.ChainPriorityNATSource,
 	})
-	nft.AddRule(rule.JumpToChain("cluster-ip-backing-pods-masq"))
-	nft.AddRule(rule.OutIfaceName(fc.VpnIface).JumpToChain("cluster-outbound-masq"))
+	nft.AddRule(rule.JumpToChain("cluster-ip-backing-pods-masq")) // TODO: local pod IP CIDR check & goto
+	nft.AddRule(rule.OutIfaceName("lo").Return())                 // TODO: use interface index here
+	nft.AddRule(rule.OutIfaceName(fc.VpnIface).GoToChain("cluster-outbound-masq"))
+	// at this point we're leaving and not to the cluster, so maybe we're a pod looking for the internet
+	for _, podNet := range fc.PodNets {
+		nft.AddRuleWithComment(rule.IsIpSrcNetwork(podNet).Counter().Masquerade(), "From our Pod CNI")
+	}
 	nft.EndChain()
 
 	nft.EndTable() // kube-pet table
