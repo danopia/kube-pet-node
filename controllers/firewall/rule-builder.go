@@ -135,6 +135,18 @@ func (rb *RuleBuilder) Accept() *RuleBuilder {
 	return rb
 }
 
+func (rb *RuleBuilder) Return() *RuleBuilder {
+	rb.exprs = append(rb.exprs,
+		// [ immediate reg 0 return ]
+		&nftexpr.Verdict{
+			Kind: nftexpr.VerdictReturn,
+		},
+	)
+
+	rb.text.WriteString(" return")
+	return rb
+}
+
 func (rb *RuleBuilder) TranslateIPv4Address(ip string) *RuleBuilder {
 	rb.exprs = append(rb.exprs,
 		// [ immediate reg 1 0x8700080a ]
@@ -237,7 +249,10 @@ func (rb *RuleBuilder) IsIpDestAddress(ip string) *RuleBuilder {
 	return rb
 }
 
-func (rb *RuleBuilder) IsIpSrcAddress(ip string) *RuleBuilder {
+func (rb *RuleBuilder) IsIpSrcAddressStr(ip string) *RuleBuilder {
+	return rb.IsIpSrcAddress(net.ParseIP(ip))
+}
+func (rb *RuleBuilder) IsIpSrcAddress(ip net.IP) *RuleBuilder {
 	rb.exprs = append(rb.exprs,
 		// [ payload load 4b @ network header + 16 => reg 1 ]
 		&nftexpr.Payload{
@@ -250,13 +265,68 @@ func (rb *RuleBuilder) IsIpSrcAddress(ip string) *RuleBuilder {
 		&nftexpr.Cmp{
 			Op:       nftexpr.CmpOpEq,
 			Register: 1,
-			Data:     parseIpForNft(ip),
+			Data:     []byte(ip.To4()),
 		},
 	)
 
 	rb.text.WriteString(" ip saddr ")
-	rb.text.WriteString(ip)
+	rb.text.WriteString(ip.String())
 	return rb
+}
+
+func (rb *RuleBuilder) IsIpSrcNetwork(ipNet net.IPNet) *RuleBuilder {
+	rb.exprs = append(rb.exprs,
+		// [ payload load 4b @ network header + 16 => reg 1 ]
+		&nftexpr.Payload{
+			DestRegister: 1,
+			Base:         nftexpr.PayloadBaseNetworkHeader,
+			Offset:       12,
+			Len:          4,
+		},
+		// [ bitwise reg 1 = (reg=1 & 0xffffff80 ) ^ 0x00000000 ]
+		&nftexpr.Bitwise{
+			SourceRegister: 1,
+			DestRegister:   1,
+			Len:            4,
+			Mask:           []byte(ipNet.Mask),
+			Xor:            []byte{0x0, 0x0, 0x0, 0x0},
+		},
+		// [ cmp eq reg 1 0x4b0f060a ]
+		&nftexpr.Cmp{
+			Op:       nftexpr.CmpOpEq,
+			Register: 1,
+			Data:     []byte(ipNet.IP.To4()),
+		},
+	)
+
+	rb.text.WriteString(" ip saddr ")
+	rb.text.WriteString(ipNet.String())
+	return rb
+}
+
+func (rb *RuleBuilder) OutIfaceName(iface string) *RuleBuilder {
+	rb.exprs = append(rb.exprs,
+		// [ meta load oifname => reg 1 ]
+		&nftexpr.Meta{Key: nftexpr.MetaKeyOIFNAME, Register: 1},
+		// [ cmp eq reg 1 0x696c7075 0x00306b6e 0x00000000 0x00000000 ]
+		&nftexpr.Cmp{
+			Op:       nftexpr.CmpOpEq,
+			Register: 1,
+			Data:     ifname(iface),
+		},
+	)
+
+	rb.text.WriteString(" oifname ")
+	rb.text.WriteRune('"')
+	rb.text.WriteString(iface)
+	rb.text.WriteRune('"')
+	return rb
+}
+
+func ifname(n string) []byte {
+	b := make([]byte, 16)
+	copy(b, []byte(n+"\x00"))
+	return b
 }
 
 // call into another chain and jump back afterwards if it didn't have a verdict

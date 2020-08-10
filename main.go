@@ -124,7 +124,7 @@ func main() {
 	log.Println("Pod networks:", podNets)
 
 	// construct the node
-	petNode, err := controller.NewPetNode(ctx, nodeName, podManager, clientset, maxPods, nodeIP, podNets, *cniNetFlag)
+	petNode, err := controller.NewPetNode(ctx, nodeName, podManager, clientset, maxPods, *vpnIfaceFlag, nodeIP, podNets, *cniNetFlag)
 	if err != nil {
 		panic(err)
 	}

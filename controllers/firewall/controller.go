@@ -6,6 +6,7 @@ import (
 	"hash"
 	"hash/fnv"
 	"log"
+	"net"
 	"strings"
 	"time"
 
@@ -18,16 +19,24 @@ import (
 )
 
 type FirewallController struct {
-	NodeName          string
+	NodeName string
+	VpnIface string
+	NodeIP   net.IP
+	PodNets  []net.IPNet
+
 	ServiceInformer   corev1informers.ServiceInformer
 	EndpointsInformer corev1informers.EndpointsInformer
 	Debounce          func(func())
 	LatestConfigHash  []byte
 }
 
-func NewFirewallController(nodeName string, si corev1informers.ServiceInformer, ei corev1informers.EndpointsInformer) *FirewallController {
+func NewFirewallController(nodeName string, vpnIface string, nodeIP net.IP, podNets []net.IPNet, si corev1informers.ServiceInformer, ei corev1informers.EndpointsInformer) *FirewallController {
 	return &FirewallController{
-		NodeName:          nodeName,
+		NodeName: nodeName,
+		VpnIface: vpnIface,
+		NodeIP:   nodeIP,
+		PodNets:  podNets,
+
 		ServiceInformer:   si,
 		EndpointsInformer: ei,
 		Debounce:          debounce.New(time.Second),

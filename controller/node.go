@@ -56,7 +56,7 @@ type PetNode struct {
 	ServiceInformer   corev1informers.ServiceInformer
 }
 
-func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManager, kubernetes *kubernetes.Clientset, maxPods int, nodeIP net.IP, podNets []net.IPNet, cniNet string) (*PetNode, error) {
+func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManager, kubernetes *kubernetes.Clientset, maxPods int, vpnIface string, nodeIP net.IP, podNets []net.IPNet, cniNet string) (*PetNode, error) {
 
 	podCIDRs := make([]string, len(podNets))
 	for idx, podNet := range podNets {
@@ -182,7 +182,7 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 		return nil, err
 	}
 
-	firewall := firewall.NewFirewallController(pNode.Name, serviceInformer, endpointsInformer)
+	firewall := firewall.NewFirewallController(pNode.Name, vpnIface, nodeIP, podNets, serviceInformer, endpointsInformer)
 	go firewall.Run(ctx)
 
 	kubeApi, err := kubeapi.NewKubeApi(kubernetes, podManager, pNode.Name, nodeIP)

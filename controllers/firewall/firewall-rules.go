@@ -252,13 +252,12 @@ func (fc *FirewallController) BuildConfig(nft *NftWriter) error {
 	sort.Strings(podIpsServingClusterIpsList)
 
 	// Set up a masquerade for pods participating in a service
-	// TODO: only pods that are running on this host
 	nft.StartChain(&nftables.Chain{
 		Name: "cluster-ip-backing-pods-masq",
 	})
 	for _, podIp := range podIpsServingClusterIpsList {
 		rule.Reset()
-		rule.IsIpSrcAddress(podIp)
+		rule.IsIpSrcAddressStr(podIp)
 		rule.IsIpDestAddress(podIp)
 		rule.Counter()
 		rule.Masquerade()
@@ -266,8 +265,18 @@ func (fc *FirewallController) BuildConfig(nft *NftWriter) error {
 	}
 	nft.EndChain()
 
+	// Set up a fallback masquerade for non-pod traffic leaving to the cluster
+	nft.StartChain(&nftables.Chain{
+		Name: "cluster-outbound-masq",
+	})
+	nft.AddRuleWithComment(rule.IsIpSrcAddress(fc.NodeIP).Return(), "From our Node IP")
+	for _, podNet := range fc.PodNets {
+		nft.AddRuleWithComment(rule.IsIpSrcNetwork(podNet).Return(), "From our Pod CNI")
+	}
+	nft.AddRuleWithComment(rule.Counter().Masquerade(), "Foreign traffic from us to the cluster")
+	nft.EndChain()
+
 	// Static hook chains that send packets into our actual chains
-	rule.Reset()
 
 	// TODO: only jump to cluster-ips chain if daddr has cluster-ip prefix
 	// [ bitwise reg 1 = (reg=1 & 0x00f0ffff ) ^ 0x00000000 ]
@@ -316,6 +325,7 @@ func (fc *FirewallController) BuildConfig(nft *NftWriter) error {
 		Priority: nftables.ChainPriorityNATSource,
 	})
 	nft.AddRule(rule.JumpToChain("cluster-ip-backing-pods-masq"))
+	nft.AddRule(rule.OutIfaceName(fc.VpnIface).JumpToChain("cluster-outbound-masq"))
 	nft.EndChain()
 
 	nft.EndTable() // kube-pet table
