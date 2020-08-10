@@ -31,12 +31,17 @@ I'm just tryina run some high-resource stuff out of the cloud so it's cheaper.
   * [x] image pulling
   * [ ] container lifecycle
 * [ ] image pull backoff
-* [ ] restart failed containers
+* [ ] restart failed/finished containers
 * [ ] support imagepullsecrets
 * [x] require as few permissions as possible - non-root, plus CAP_NET_ADMIN and access to a root podman
-* [ ] support configmap volumes
-* [ ] support secrets volumes
+* [ ] reasonable volume support
+  * [x] HostPath volumes
+  * [ ] ConfigMap volumes
+  * [ ] Secret volumes
+  * [ ] EmptyDir volumes
+  * [ ] NFS volumes
 * [ ] support downward IP in envars
+* [ ] include build version in our Node resources
 * [x] support self-upgrading the node itself, on demand (e.g. update target version in a configmap)
 
 ### stretch goals
