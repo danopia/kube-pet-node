@@ -156,7 +156,7 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 		log.Printf("K8S Event: "+a, b...)
 	})
 	// eb.StartLogging(log.G(context.TODO()).Infof)
-	eb.StartRecordingToSink(&corev1client.EventSinkImpl{Interface: kubernetes.CoreV1().Events("default")})
+	eb.StartRecordingToSink(&corev1client.EventSinkImpl{Interface: kubernetes.CoreV1().Events("")})
 
 	kubeletEvents := eb.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "kubelet", Host: pNode.Name})
 	// Using ObjectReference for events as the node maybe not cached; refer to #42701 for detail.

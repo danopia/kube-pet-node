@@ -83,7 +83,7 @@ type ApiError struct {
 }
 
 func (ae *ApiError) Error() string {
-	return fmt.Sprintf("HTTP %v from %v %v -- %v", ae.Status, ae.request.Method, ae.request.URL.Path, ae.Message, ae.Status)
+	return fmt.Sprintf("HTTP %v from %v %v -- %v", ae.Status, ae.request.Method, ae.request.URL.Path, ae.Message)
 }
 
 func (pc *PodmanClient) performRawRequest(ctx context.Context, method, path string) (*http.Response, error) {
