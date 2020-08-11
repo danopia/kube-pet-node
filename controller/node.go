@@ -170,7 +170,7 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 	// setup other things
 	podRunner, err := node.NewPodController(node.PodControllerConfig{
 		PodClient: kubernetes.CoreV1(),
-		Provider:  pods.NewPodmanProvider(podManager, kubeletEvents, cniNet),
+		Provider:  pods.NewPodmanProvider(podManager, kubeletEvents, secretInformer.Lister(), cniNet),
 
 		PodInformer:       podInformer,
 		EventRecorder:     kubeletEvents,

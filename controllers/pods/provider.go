@@ -2,6 +2,8 @@ package pods
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log"
 	"net"
 	"strings"
@@ -9,6 +11,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	listers_corev1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/record"
 
 	"github.com/danopia/kube-pet-node/podman"
@@ -18,22 +21,92 @@ type PodmanProvider struct {
 	podman  *podman.PodmanClient
 	manager *PodManager
 	events  record.EventRecorder
+	secrets listers_corev1.SecretLister
 	cniNet  string
 	// pods        map[string]*corev1.Pod
 	podNotifier func(*corev1.Pod)
 	// specStorage *PodSpecStorage
 }
 
-func NewPodmanProvider(podManager *PodManager, events record.EventRecorder, cniNet string) *PodmanProvider {
+func NewPodmanProvider(podManager *PodManager, events record.EventRecorder, secrets listers_corev1.SecretLister, cniNet string) *PodmanProvider {
 	return &PodmanProvider{
 		podman:  podManager.podman,
 		manager: podManager,
 		events:  events,
+		secrets: secrets,
 		cniNet:  cniNet,
 		// pods:        make(map[string]*corev1.Pod),
 		podNotifier: func(*corev1.Pod) {},
 		// specStorage: specStorage,
 	}
+}
+
+func (d *PodmanProvider) GrabPullSecrets(namespace string, secretRefs []corev1.LocalObjectReference) ([]*corev1.Secret, error) {
+	lister := d.secrets.Secrets(namespace)
+	secrets := make([]*corev1.Secret, len(secretRefs))
+	for idx, ref := range secretRefs {
+		secret, err := lister.Get(ref.Name)
+		if err != nil {
+			return secrets, err
+		}
+		secrets[idx] = secret
+	}
+	return secrets, nil
+}
+
+func (d *PodmanProvider) PullImage(ctx context.Context, imageRef string, pullSecrets []*corev1.Secret, podRef *corev1.ObjectReference) error {
+	d.events.Eventf(podRef, corev1.EventTypeNormal, "Pulling", "Pulling image \"%s\"", imageRef)
+
+	imgIds, err := d.podman.Pull(ctx, imageRef, nil)
+	if err == nil {
+		log.Println("Pulled images", imgIds, "for", podRef.Namespace, "/", podRef.Name)
+		d.events.Eventf(podRef, corev1.EventTypeNormal, "Pulled", "Successfully pulled public image \"%s\"", imageRef)
+		return nil
+	} else if !strings.Contains(err.Error(), "unauthorized") {
+		return err
+	}
+
+	for _, secret := range pullSecrets {
+		if secret.Type != "kubernetes.io/dockerconfigjson" {
+			return fmt.Errorf("TODO: ImagePullSecret %s has weird type %s", secret.ObjectMeta.Name, secret.Type)
+		}
+
+		dockerconfjson, ok := secret.Data[".dockerconfigjson"]
+		if !ok {
+			return fmt.Errorf("TODO: ImagePullSecret %s is missing .dockerconfigjson", secret.ObjectMeta.Name)
+		}
+
+		// round-trip json to pull out a specific field
+		var dockerconf DockerConfigJson
+		if err := json.Unmarshal(dockerconfjson, &dockerconf); err != nil {
+			return err // TODO: wrap
+		}
+		authBody, jerr := json.Marshal(&dockerconf.Auths)
+		if jerr != nil {
+			return jerr // TODO: wrap
+		}
+
+		imgIds, err = d.podman.Pull(ctx, imageRef, authBody)
+		if err == nil {
+			log.Println("Pulled PRIVATE images", imgIds, "for", podRef.Namespace, "/", podRef.Name)
+			d.events.Eventf(podRef, corev1.EventTypeNormal, "Pulled", "Successfully pulled private image \"%s\"", imageRef)
+			return nil
+		} else if !strings.Contains(err.Error(), "unauthorized") {
+			return err
+		}
+	}
+
+	return err
+}
+
+type DockerConfigJson struct {
+	Auths map[string]DockerCredential
+}
+type DockerCredential struct {
+	Username string
+	Password string
+	Email    string
+	Auth     string
 }
 
 // CreatePod takes a Kubernetes Pod and deploys it within the provider.
@@ -62,37 +135,36 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 	}
 	log.Printf("pod create %+v", creation)
 
+	pullSecrets, err := d.GrabPullSecrets(podRef.Namespace, pod.Spec.ImagePullSecrets)
+	if err != nil {
+		log.Println("TODO: image pull secrets lookup err:", err)
+		return err
+	}
+
 	for _, conSpec := range pod.Spec.Containers {
 
+		// Always pull first for Always
 		if conSpec.ImagePullPolicy == corev1.PullAlways {
-			d.events.Eventf(podRef, corev1.EventTypeNormal, "Pulling", "Pulling image \"%s\"", conSpec.Image)
-
-			imgIds, err := d.podman.Pull(ctx, conSpec.Image)
+			err = d.PullImage(ctx, conSpec.Image, pullSecrets, podRef)
 			if err != nil {
 				log.Println("TODO: image pull", conSpec.Image, "err", err)
 				return err
 			}
-			log.Println("Pulled images", imgIds, "for", conSpec)
-
-			d.events.Eventf(podRef, corev1.EventTypeNormal, "Pulled", "Successfully pulled image \"%s\"", conSpec.Image)
 		}
 
 		conCreation, err := d.podman.ContainerCreate(ctx, ConvertContainerConfig(pod, &conSpec, creation.Id))
 		if err != nil {
 
+			// Pull on-the-spot for IfNotPresent
 			if strings.HasSuffix(err.Error(), "no such image") && conSpec.ImagePullPolicy == corev1.PullIfNotPresent {
 
-				d.events.Eventf(podRef, corev1.EventTypeNormal, "Pulling", "Pulling image \"%s\"", conSpec.Image)
-
-				imgIds, err := d.podman.Pull(ctx, conSpec.Image)
+				err := d.PullImage(ctx, conSpec.Image, pullSecrets, podRef)
 				if err != nil {
 					log.Println("TODO: image pull", conSpec.Image, "err", err)
 					return err
 				}
-				log.Println("Pulled images", imgIds, "for", conSpec)
 
-				d.events.Eventf(podRef, corev1.EventTypeNormal, "Pulled", "Successfully pulled image \"%s\"", conSpec.Image)
-
+				// ... and retry creation
 				conCreation, err = d.podman.ContainerCreate(ctx, ConvertContainerConfig(pod, &conSpec, creation.Id))
 				if err != nil {
 					log.Println("container create err", err)

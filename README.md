@@ -32,7 +32,7 @@ I'm just tryina run some high-resource stuff out of the cloud so it's cheaper.
   * [ ] container lifecycle
 * [ ] image pull backoff
 * [ ] restart failed/finished containers
-* [ ] support imagepullsecrets
+* [x] support imagepullsecrets
 * [x] require as few permissions as possible - non-root, plus CAP_NET_ADMIN and access to a root podman
 * [ ] reasonable volume support
   * [x] HostPath volumes

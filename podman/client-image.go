@@ -2,6 +2,9 @@ package podman
 
 import (
 	"context"
+	"encoding/base64"
+	"log"
+	"net/http"
 	"time"
 )
 
@@ -51,14 +54,29 @@ type ImageSummary struct {
 // Prune(ctx context.Context, opts ImagePruneOptions) (*ImagePruneReport, error)
 
 // Pull(ctx context.Context, rawImage string, opts ImagePullOptions) (*ImagePullReport, error)
-func (pc *PodmanClient) Pull(ctx context.Context, reference string) ([]ImagePullReport, error) {
+func (pc *PodmanClient) Pull(ctx context.Context, reference string, authConfig []byte) ([]ImagePullReport, error) {
 	encoded, err := UrlEncoded(reference)
 	if err != nil {
 		return nil, err
 	}
+	path := "/libpod/images/pull?reference=" + encoded
+
+	req, err := http.NewRequestWithContext(ctx, "POST", "http://podman/v1.0.0"+path, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("accept", "application/json")
+
+	// Pass docker auth if provided
+	var authHeader string
+	if authConfig != nil {
+		authHeader = " -H 'X-Registry-Auth: [redacted]'"
+		req.Header.Set("x-registry-auth", base64.StdEncoding.EncodeToString(authConfig))
+	}
+	log.Printf("curl -XPOST http://podman/v1.0.0/%v%v", path, authHeader)
 
 	var out []ImagePullReport
-	return out, pc.performPost(ctx, "/libpod/images/pull?reference="+encoded, struct{}{}, &out)
+	return out, pc.performJsonRequest(req, path, &out)
 }
 
 type ImagePullReport struct {
