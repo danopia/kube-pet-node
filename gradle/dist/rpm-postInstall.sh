@@ -15,10 +15,10 @@ if [ $1 -eq 1 ] && [ -x /usr/bin/systemctl ] ; then
     chmod -R 0700 /opt/kube-pet-node/.cache
   fi
 
-  # allow managing the network without sudo
-  setcap cap_net_admin+ep "$(readlink /usr/bin/kube-pet-node)"
-
   /usr/bin/systemctl enable kube-podman.service >/dev/null 2>&1 || :
   /usr/bin/systemctl enable --now kube-podman.socket >/dev/null 2>&1 || :
   /usr/bin/systemctl enable --now kube-pet-node.service >/dev/null 2>&1 || :
 fi
+
+# allow managing the network without sudo
+setcap cap_net_admin+ep "$(readlink /usr/bin/kube-pet-node)"
