@@ -144,9 +144,9 @@ func ConvertContainerConfig(pod *corev1.Pod, conSpec *corev1.Container, podId st
 				if value, ok := pod.ObjectMeta.Annotations["vk.podman.io/volume-selinux."+volMount.Name]; ok {
 					switch value {
 					case "relabel-private":
-						flags = append(flags, "z")
-					case "relabel-shared":
 						flags = append(flags, "Z")
+					case "relabel-shared":
+						flags = append(flags, "z")
 					}
 				}
 
