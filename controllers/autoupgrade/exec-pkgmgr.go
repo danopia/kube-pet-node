@@ -10,8 +10,8 @@ import (
 var hasDpkg bool
 var hasDnf bool
 
-var dnfVerPattern *regexp.Regexp = regexp.MustCompile("^Version +: (.+)$")
-var dnfRelPattern *regexp.Regexp = regexp.MustCompile("^Release +: (.+)$")
+var dnfVerPattern *regexp.Regexp = regexp.MustCompile("(?m)^Version +: (.+)$")
+var dnfRelPattern *regexp.Regexp = regexp.MustCompile("(?m)^Release +: (.+)$")
 
 func init() {
 	if err := exec.Command("/usr/bin/env", "which", "dpkg-query").Run(); err == nil {
@@ -72,9 +72,13 @@ func GetInstalledVersion(pkgName string) (string, error) {
 		var release string = "missing"
 		if match := dnfVerPattern.FindSubmatch(out); match != nil {
 			version = string(match[1])
+		} else {
+			return "", fmt.Errorf("dnf version pattern didn't match")
 		}
 		if match := dnfRelPattern.FindSubmatch(out); match != nil {
 			release = string(match[1])
+		} else {
+			return "", fmt.Errorf("dnf release pattern didn't match")
 		}
 		return fmt.Sprintf("%s-%s", version, release), nil
 
