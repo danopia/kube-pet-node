@@ -134,16 +134,27 @@ func ConvertContainerConfig(pod *corev1.Pod, conSpec *corev1.Container, podId st
 
 			if volSource.VolumeSource.HostPath != nil {
 				// TODO: volSource.VolumeSource.HostPath.Type
-				flags := "rw"
+				flag := "rw"
 				if volMount.ReadOnly {
-					flags = "ro"
+					flag = "ro"
+				}
+				flags := []string{flag}
+
+				// https://github.com/containers/podman/blob/0d26a573e3cf8cc5baea84206a86cb83b433b6d5/pkg/util/mountOpts.go#L107
+				if value, ok := pod.ObjectMeta.Annotations["vk.podman.io/volume-selinux."+volMount.Name]; ok {
+					switch value {
+					case "relabel-private":
+						flags = append(flags, "z")
+					case "relabel-shared":
+						flags = append(flags, "Z")
+					}
 				}
 
 				mounts = append(mounts, podman.Mount{
 					Type:        "bind",
 					Source:      volSource.VolumeSource.HostPath.Path + volMount.SubPath,
 					Destination: volMount.MountPath,
-					Options:     []string{flags},
+					Options:     flags,
 				})
 
 				continue
