@@ -162,18 +162,4 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 		ConfigMapInformer: configMapInformer,
 		ServiceInformer:   serviceInformer,
 	}, nil
-
-	// select {
-	// case <-podRunner.Ready():
-	// 	log.Println("Ready...")
-	// 	<-podRunner.Done()
-	// 	log.Println("Done!")
-	// case <-podRunner.Done():
-	// 	log.Println("Done...")
-	// }
-	// if podRunner.Err() != nil {
-	// 	log.Println(podRunner.Err())
-	// 	// handle error
-	// }
-	// log.Println("exit")
 }

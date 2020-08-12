@@ -33,6 +33,7 @@ I'm just tryina run some high-resource stuff out of the cloud so it's cheaper.
 * [ ] image pull backoff
 * [ ] restart failed/finished containers
 * [x] support imagepullsecrets
+* [x] report our Internet address in node status (for dynamic dns purposes)
 * [x] require as few permissions as possible - non-root, plus CAP_NET_ADMIN and access to a root podman
 * [ ] reasonable volume support
   * [x] HostPath volumes

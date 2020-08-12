@@ -23,70 +23,44 @@ import (
 // PetNodeProvider is a node provider that fills in
 // the status and health for our Kubernetes Node object.
 type PetNodeProvider struct {
-	node       *corev1.Node
-	conVersion *podman.DockerVersionReport
-	maxPods    resource.Quantity
-	nodeIP     net.IP
+	node        *corev1.Node
+	nodeStatus  *corev1.NodeStatus
+	externalIpC <-chan string
 }
 
 func NewPetNodeProvider(node *corev1.Node, conVersion *podman.DockerVersionReport, maxPods int, nodeIP net.IP) (*PetNodeProvider, error) {
-	return &PetNodeProvider{
-		node:       node,
-		conVersion: conVersion,
-		maxPods:    resource.MustParse(strconv.Itoa(maxPods)),
-		nodeIP:     nodeIP,
-	}, nil
-}
 
-func (np *PetNodeProvider) Ping(ctx context.Context) error {
-	return ctx.Err()
-}
-
-func (np *PetNodeProvider) NotifyNodeStatus(ctx context.Context, f func(*corev1.Node)) {
-	log.Println("Building node status...")
-
-	// TODO: sorting, top 25
-	// localImages, err := np.podman.List(ctx)
-	// if err != nil {
-	// 	return //nil, err
-	// }
-	var localImagesMapped []corev1.ContainerImage
-	// for _, img := range localImages {
-	// 	localImagesMapped = append(localImagesMapped, corev1.ContainerImage{
-	// 		Names:     img.Names,
-	// 		SizeBytes: img.Size,
-	// 	})
-	// }
+	log.Println("NodeIdentity: Building initial node status...")
 
 	machineId, err := ioutil.ReadFile("/etc/machine-id")
 	if err != nil {
-		return //nil, err
+		return nil, err
 	}
 	machineIdStr := strings.Trim(string(machineId), "\n")
 
 	bootId, err := ioutil.ReadFile("/proc/sys/kernel/random/boot_id")
 	if err != nil {
-		return //nil, err
+		return nil, err
 	}
 	bootIdStr := strings.Trim(string(bootId), "\n")
 
 	osPrettyName, err := findosPrettyName("/etc/os-release")
 	if err != nil {
-		return //nil, err
+		return nil, err
 	}
 
-	np.node.Status = corev1.NodeStatus{
+	nodeStatus := &corev1.NodeStatus{
 		Capacity: corev1.ResourceList{
 			"cpu":               *resource.NewScaledQuantity(int64(runtime.NumCPU()), 0),
 			"memory":            *resource.NewQuantity(int64(memory.TotalMemory()), resource.BinarySI),
-			"pods":              np.maxPods,
+			"pods":              resource.MustParse(strconv.Itoa(maxPods)),
 			"ephemeral-storage": resource.MustParse("10Gi"), // TODO
 			"hugepages-2Mi":     resource.MustParse("0"),
 		},
 		Allocatable: corev1.ResourceList{
 			"cpu":               resource.MustParse("1000m"),
 			"memory":            resource.MustParse("1000Mi"),
-			"pods":              np.maxPods,
+			"pods":              resource.MustParse(strconv.Itoa(maxPods)),
 			"ephemeral-storage": resource.MustParse("1Gi"), // TODO
 			"hugepages-2Mi":     resource.MustParse("0"),
 		},
@@ -127,30 +101,29 @@ func (np *PetNodeProvider) NotifyNodeStatus(ctx context.Context, f func(*corev1.
 				Type:               "NetworkUnavailable",
 			},
 		},
-		Images: localImagesMapped,
 		NodeInfo: corev1.NodeSystemInfo{
-			Architecture:            np.conVersion.Arch,
+			Architecture:            conVersion.Arch,
 			BootID:                  bootIdStr,
 			MachineID:               machineIdStr,
-			KernelVersion:           np.conVersion.KernelVersion,
+			KernelVersion:           conVersion.KernelVersion,
 			OSImage:                 osPrettyName,
-			ContainerRuntimeVersion: "podman://" + np.conVersion.Version,
+			ContainerRuntimeVersion: "podman://" + conVersion.Version,
 			KubeletVersion:          "kube-pet/v0.1.0",     // TODO?
 			KubeProxyVersion:        "nftables-pet/v0.0.1", // TODO?
-			OperatingSystem:         np.conVersion.Os,
+			OperatingSystem:         conVersion.Os,
 		},
 		Addresses: []corev1.NodeAddress{
 			{
 				Type:    corev1.NodeHostName,
-				Address: np.node.ObjectMeta.Name,
+				Address: node.ObjectMeta.Name,
 			},
 			{
 				Type:    corev1.NodeInternalIP,
-				Address: np.nodeIP.String(),
+				Address: nodeIP.String(),
 			},
 			{
 				Type:    corev1.NodeInternalDNS,
-				Address: np.node.ObjectMeta.Name + ".local",
+				Address: node.ObjectMeta.Name + ".local",
 			},
 			// { // TODO: look up on da.gd/ip or something
 			// 	Type:    corev1.NodeExternalIP,
@@ -158,17 +131,92 @@ func (np *PetNodeProvider) NotifyNodeStatus(ctx context.Context, f func(*corev1.
 			// },
 			// also NodeExternalDNS
 		},
+		DaemonEndpoints: corev1.NodeDaemonEndpoints{
+			KubeletEndpoint: corev1.DaemonEndpoint{
+				Port: 10250,
+			},
+		},
 	}
 
-	// status:
-	//   daemonEndpoints:
-	//     kubeletEndpoint:
-	//       Port: 10250
-	//   volumesAttached: []
-	//   volumesInUse: []
+	ipC, readyC := WatchInternetV4Address()
+	select {
+	case <-readyC:
+	case <-time.After(5 * time.Second):
+		log.Println("NodeIdentity: timeout waiting for our Internet IP address")
+	}
 
-	go f(np.node)
-	log.Println("Node status updated!")
+	return &PetNodeProvider{
+		node:        node,
+		nodeStatus:  nodeStatus,
+		externalIpC: ipC,
+	}, nil
+}
+
+func (np *PetNodeProvider) Ping(ctx context.Context) error {
+	return ctx.Err()
+}
+
+func (np *PetNodeProvider) NotifyNodeStatus(ctx context.Context, f func(*corev1.Node)) {
+	go func() {
+
+		ticker := time.NewTicker(1 * time.Hour)
+		firstRunC := make(chan struct{})
+		close(firstRunC)
+
+		for {
+			select {
+
+			case externalIp := <-np.externalIpC:
+				matched := false
+				for idx := range np.nodeStatus.Addresses {
+					if np.nodeStatus.Addresses[idx].Type == corev1.NodeExternalIP {
+						matched = true
+						np.nodeStatus.Addresses[idx].Address = externalIp
+						log.Println("NodeIdentity: Updated ExternalIP in our status")
+					}
+				}
+				if !matched {
+					np.nodeStatus.Addresses = append(np.nodeStatus.Addresses, corev1.NodeAddress{
+						Type:    corev1.NodeExternalIP,
+						Address: externalIp,
+					})
+					log.Println("NodeIdentity: Added ExternalIP to our status")
+				}
+
+			case <-ticker.C:
+				log.Println("NodeIdentity: Performing periodic status refresh")
+				// TODO: sorting, top 25
+				// localImages, err := np.podman.List(ctx)
+				// if err != nil {
+				// 	return //nil, err
+				// }
+				var localImagesMapped []corev1.ContainerImage
+				// for _, img := range localImages {
+				// 	localImagesMapped = append(localImagesMapped, corev1.ContainerImage{
+				// 		Names:     img.Names,
+				// 		SizeBytes: img.Size,
+				// 	})
+				// }
+
+				np.nodeStatus.Images = localImagesMapped
+
+			case <-firstRunC:
+				log.Println("NodeIdentity: Reporting initial NodeStatus")
+			}
+			firstRunC = nil
+
+			// actually report
+			newNode := &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: np.node.Annotations,
+					Labels:      np.node.Labels,
+				},
+			}
+			np.nodeStatus.DeepCopyInto(&newNode.Status)
+			f(newNode)
+			log.Println("NodeIdentity: Node status updated!")
+		}
+	}()
 }
 
 func findosPrettyName(fname string) (string, error) {
