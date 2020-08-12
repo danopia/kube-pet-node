@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"runtime"
+	"strings"
 
 	"github.com/virtual-kubelet/virtual-kubelet/node"
 	corev1 "k8s.io/api/core/v1"
@@ -31,11 +32,14 @@ func NewNodeIdentity(kubernetes *kubernetes.Clientset, nodeName string, petVersi
 				"lifetime": "persistent",
 
 				"kubernetes.io/role":     "pet",
-				"kubernetes.io/hostname": nodeName,
+				"kubernetes.io/hostname": strings.TrimPrefix(nodeName, "pet-"),
 				"kubernetes.io/arch":     runtime.GOARCH,
 				"kubernetes.io/os":       runtime.GOOS,
 			},
-			Annotations: map[string]string{},
+			Annotations: map[string]string{
+				// i made this one up to deal with external-dns
+				"kubernetes.io/node.class": "kube-pet",
+			},
 		},
 		Spec: corev1.NodeSpec{
 			PodCIDRs: podCIDRs,
