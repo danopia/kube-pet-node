@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"net"
-	"runtime"
 	"time"
 
 	// "k8s.io/client-go/tools/clientcmd"
@@ -28,12 +27,10 @@ import (
 	"github.com/danopia/kube-pet-node/controllers/autoupgrade"
 	"github.com/danopia/kube-pet-node/controllers/firewall"
 	"github.com/danopia/kube-pet-node/controllers/kubeapi"
+	"github.com/danopia/kube-pet-node/controllers/nodeidentity"
 	"github.com/danopia/kube-pet-node/controllers/pods"
 	// "github.com/danopia/kube-pet-node/podman"
 )
-
-// type NP struct {}
-// func (np *NP) NotifyNodeStatus(	)
 
 type PetNode struct {
 	// our clients
@@ -58,70 +55,12 @@ type PetNode struct {
 
 func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManager, kubernetes *kubernetes.Clientset, maxPods int, vpnIface string, nodeIP net.IP, podNets []net.IPNet, cniNet string) (*PetNode, error) {
 
-	podCIDRs := make([]string, len(podNets))
-	for idx, podNet := range podNets {
-		podCIDRs[idx] = (&podNet).String()
-	}
-
-	pNode := &corev1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: nodeName,
-			Labels: map[string]string{
-				"purpose":  "pet",
-				"type":     "virtual-kubelet",
-				"lifetime": "persistent",
-
-				"kubernetes.io/role":     "pet",
-				"kubernetes.io/hostname": nodeName,
-				"kubernetes.io/arch":     runtime.GOARCH,
-				"kubernetes.io/os":       runtime.GOOS,
-			},
-			Annotations: map[string]string{},
-		},
-		Spec: corev1.NodeSpec{
-			PodCIDRs: podCIDRs,
-			// If ProviderID isn't a gce:// URI, the GKE autoscaler breaks in half as long as we're Ready
-			ProviderID: "gce://kube-pet-node/bare-metal/" + nodeName,
-			Taints: []corev1.Taint{{
-				Key:    "kubernetes.io/pet-node",
-				Value:  nodeName,
-				Effect: "NoSchedule",
-			}},
-		},
-	}
-
-	if len(podCIDRs) > 0 {
-		pNode.Spec.PodCIDR = podCIDRs[0]
-	}
-
 	conVersion, err := podManager.RuntimeVersionReport(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	nodeProvider, err := NewPetNodeProvider(pNode, conVersion, maxPods, nodeIP)
-	if err != nil {
-		return nil, err
-	}
-
-	nodeRunner, err := node.NewNodeController(nodeProvider, pNode,
-		kubernetes.CoreV1().Nodes(),
-		node.WithNodeEnableLeaseV1Beta1(kubernetes.CoordinationV1beta1().Leases(corev1.NamespaceNodeLease), nil),
-		// node.WithNodeStatusUpdateErrorHandler(func(ctx context.Context, err error) error {
-		// 	if !k8serrors.IsNotFound(err) {
-		// 		return err
-		// 	}
-		// 	log.G(ctx).Debug("node not found")
-		// 	newNode := pNode.DeepCopy()
-		// 	newNode.ResourceVersion = ""
-		// 	_, err = client.CoreV1().Nodes().Create(newNode)
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// 	log.G(ctx).Debug("created new node")
-		// 	return nil
-		// }),
-	)
+	nodeRunner, err := nodeidentity.NewNodeIdentity(kubernetes, nodeName, conVersion, maxPods, nodeIP, podNets)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +73,7 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 		5*time.Minute, // resync period
 		// kubeinformers.WithNamespace(""),
 		kubeinformers.WithTweakListOptions(func(options *metav1.ListOptions) {
-			options.FieldSelector = fields.OneTermEqualSelector("spec.nodeName", pNode.Name).String()
+			options.FieldSelector = fields.OneTermEqualSelector("spec.nodeName", nodeName).String()
 		}))
 	podInformer := podInformerFactory.Core().V1().Pods()
 
@@ -158,12 +97,12 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 	// eb.StartLogging(log.G(context.TODO()).Infof)
 	eb.StartRecordingToSink(&corev1client.EventSinkImpl{Interface: kubernetes.CoreV1().Events("")})
 
-	kubeletEvents := eb.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "kubelet", Host: pNode.Name})
+	kubeletEvents := eb.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "kubelet", Host: nodeName})
 	// Using ObjectReference for events as the node maybe not cached; refer to #42701 for detail.
 	nodeRef := &corev1.ObjectReference{
 		Kind:      "Node",
-		Name:      pNode.Name,
-		UID:       types.UID(pNode.Name),
+		Name:      nodeName,
+		UID:       types.UID(nodeName),
 		Namespace: "",
 	}
 
@@ -182,10 +121,10 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 		return nil, err
 	}
 
-	firewall := firewall.NewFirewallController(pNode.Name, vpnIface, nodeIP, podNets, serviceInformer, endpointsInformer)
+	firewall := firewall.NewFirewallController(nodeName, vpnIface, nodeIP, podNets, serviceInformer, endpointsInformer)
 	go firewall.Run(ctx)
 
-	kubeApi, err := kubeapi.NewKubeApi(kubernetes, podManager, pNode.Name, nodeIP)
+	kubeApi, err := kubeapi.NewKubeApi(kubernetes, podManager, nodeName, nodeIP)
 	if err != nil {
 		return nil, err
 	}

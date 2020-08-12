@@ -1,4 +1,4 @@
-package controller
+package nodeidentity
 
 import (
 	"bufio"
