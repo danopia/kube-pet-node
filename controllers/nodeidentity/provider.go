@@ -28,7 +28,7 @@ type PetNodeProvider struct {
 	externalIpC <-chan string
 }
 
-func NewPetNodeProvider(node *corev1.Node, conVersion *podman.DockerVersionReport, maxPods int, nodeIP net.IP) (*PetNodeProvider, error) {
+func NewPetNodeProvider(node *corev1.Node, petVersion string, conVersion *podman.DockerVersionReport, maxPods int, nodeIP net.IP) (*PetNodeProvider, error) {
 
 	log.Println("NodeIdentity: Building initial node status...")
 
@@ -108,8 +108,8 @@ func NewPetNodeProvider(node *corev1.Node, conVersion *podman.DockerVersionRepor
 			KernelVersion:           conVersion.KernelVersion,
 			OSImage:                 osPrettyName,
 			ContainerRuntimeVersion: "podman://" + conVersion.Version,
-			KubeletVersion:          "kube-pet/v0.1.0",     // TODO?
-			KubeProxyVersion:        "nftables-pet/v0.0.1", // TODO?
+			KubeletVersion:          "kube-pet/" + petVersion,
+			KubeProxyVersion:        "nftables-pet/" + petVersion,
 			OperatingSystem:         conVersion.Os,
 		},
 		Addresses: []corev1.NodeAddress{

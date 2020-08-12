@@ -19,12 +19,10 @@ import (
 type AutoUpgrade struct {
 	IsCapable   bool
 	SelfVersion *semver.Version
-	// ConfigMapInformer corev1informers.ConfigMapInformer
-
 	releaseChan chan *TargetRelease
 }
 
-func NewAutoUpgrade(cmi corev1informers.ConfigMapInformer) (*AutoUpgrade, error) {
+func NewAutoUpgrade() (*AutoUpgrade, error) {
 
 	installedVersion, err := GetInstalledVersion("kube-pet-node")
 	if err != nil {
@@ -44,36 +42,11 @@ func NewAutoUpgrade(cmi corev1informers.ConfigMapInformer) (*AutoUpgrade, error)
 		return &AutoUpgrade{}, nil
 	}
 
-	controller := &AutoUpgrade{
+	return &AutoUpgrade{
 		IsCapable:   true,
 		SelfVersion: parsedVersion,
-		// ConfigMapInformer: cmi,
-
 		releaseChan: make(chan *TargetRelease, 0),
-	}
-
-	cmi.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(res interface{}) {
-			if res, ok := res.(*corev1.ConfigMap); ok {
-				controller.enqueueConfigMap(res)
-			}
-		},
-		UpdateFunc: func(before, after interface{}) {
-			if res, ok := after.(*corev1.ConfigMap); ok {
-				controller.enqueueConfigMap(res)
-			}
-		},
-		DeleteFunc: func(res interface{}) {
-			if res, ok := res.(*corev1.ConfigMap); ok {
-				if res.ObjectMeta.Namespace == "kube-system" && res.ObjectMeta.Name == "kube-pet-node" {
-					controller.releaseChan <- nil
-				}
-			}
-		},
-	})
-	log.Println("AutoUpgrade: Configured TargetRelease informer")
-
-	return controller, nil
+	}, nil
 }
 
 func (ka *AutoUpgrade) enqueueConfigMap(res *corev1.ConfigMap) {
@@ -92,12 +65,33 @@ func (ka *AutoUpgrade) enqueueConfigMap(res *corev1.ConfigMap) {
 	}
 }
 
-func (ka *AutoUpgrade) Run(ctx context.Context) {
+func (ka *AutoUpgrade) Run(ctx context.Context, cmi corev1informers.ConfigMapInformer) {
 
 	if !ka.IsCapable {
 		log.Println("AutoUpgrade: Leaving disabled for the lifetime of this process.")
 		return
 	}
+
+	cmi.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(res interface{}) {
+			if res, ok := res.(*corev1.ConfigMap); ok {
+				ka.enqueueConfigMap(res)
+			}
+		},
+		UpdateFunc: func(before, after interface{}) {
+			if res, ok := after.(*corev1.ConfigMap); ok {
+				ka.enqueueConfigMap(res)
+			}
+		},
+		DeleteFunc: func(res interface{}) {
+			if res, ok := res.(*corev1.ConfigMap); ok {
+				if res.ObjectMeta.Namespace == "kube-system" && res.ObjectMeta.Name == "kube-pet-node" {
+					ka.releaseChan <- nil
+				}
+			}
+		},
+	})
+	log.Println("AutoUpgrade: Configured TargetRelease informer")
 
 	var timerC <-chan time.Time
 	var targetRelease *TargetRelease

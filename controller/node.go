@@ -55,12 +55,22 @@ type PetNode struct {
 
 func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManager, kubernetes *kubernetes.Clientset, maxPods int, vpnIface string, nodeIP net.IP, podNets []net.IPNet, cniNet string) (*PetNode, error) {
 
+	autoUpgrade, err := autoupgrade.NewAutoUpgrade()
+	if err != nil {
+		return nil, err
+	}
+
+	petVersion := "development"
+	if autoUpgrade.SelfVersion != nil {
+		petVersion = autoUpgrade.SelfVersion.String()
+	}
+
 	conVersion, err := podManager.RuntimeVersionReport(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	nodeRunner, err := nodeidentity.NewNodeIdentity(kubernetes, nodeName, conVersion, maxPods, nodeIP, podNets)
+	nodeRunner, err := nodeidentity.NewNodeIdentity(kubernetes, nodeName, petVersion, conVersion, maxPods, nodeIP, podNets)
 	if err != nil {
 		return nil, err
 	}
@@ -130,11 +140,7 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 	}
 	go kubeApi.Run(ctx)
 
-	autoUpgrade, err := autoupgrade.NewAutoUpgrade(configMapInformer)
-	if err != nil {
-		return nil, err
-	}
-	go autoUpgrade.Run(ctx)
+	go autoUpgrade.Run(ctx, configMapInformer)
 
 	go nodeRunner.Run(ctx)
 

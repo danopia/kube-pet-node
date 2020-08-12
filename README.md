@@ -42,7 +42,7 @@ I'm just tryina run some high-resource stuff out of the cloud so it's cheaper.
   * [ ] EmptyDir volumes
   * [ ] NFS volumes
 * [ ] support downward IP in envars
-* [ ] include build version in our Node resources
+* [x] include build version in our Node resources
 * [x] support self-upgrading the node itself, on demand (e.g. update target version in a configmap)
 
 ### stretch goals

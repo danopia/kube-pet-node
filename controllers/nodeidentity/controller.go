@@ -15,7 +15,7 @@ import (
 	"github.com/danopia/kube-pet-node/podman"
 )
 
-func NewNodeIdentity(kubernetes *kubernetes.Clientset, nodeName string, conVersion *podman.DockerVersionReport, maxPods int, nodeIP net.IP, podNets []net.IPNet) (*node.NodeController, error) {
+func NewNodeIdentity(kubernetes *kubernetes.Clientset, nodeName string, petVersion string, conVersion *podman.DockerVersionReport, maxPods int, nodeIP net.IP, podNets []net.IPNet) (*node.NodeController, error) {
 
 	podCIDRs := make([]string, len(podNets))
 	for idx, podNet := range podNets {
@@ -53,7 +53,7 @@ func NewNodeIdentity(kubernetes *kubernetes.Clientset, nodeName string, conVersi
 		pNode.Spec.PodCIDR = podCIDRs[0]
 	}
 
-	nodeProvider, err := NewPetNodeProvider(pNode, conVersion, maxPods, nodeIP)
+	nodeProvider, err := NewPetNodeProvider(pNode, petVersion, conVersion, maxPods, nodeIP)
 	if err != nil {
 		return nil, err
 	}
