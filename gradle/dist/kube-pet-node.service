@@ -1,6 +1,8 @@
 [Unit]
 Description=Join a node to Kubernetes without installing Kubernetes
 After=network.target
+After=wg-quick@wg-gke.service
+After=kube-podman.socket
 Requires=kube-podman.socket
 
 [Service]
