@@ -86,8 +86,8 @@ func ConvertContainerConfig(pod *corev1.Pod, conSpec *corev1.Container, podId st
 		if envVar.ValueFrom == nil {
 			conEnv[envVar.Name] = envVar.Value
 		} else {
-			log.Println("WARN:", key, conSpec.Name, "env", envVar.Name, "is dynamic!")
-			log.Printf("TODO: EnvVariable definition: %+v", envVar)
+			log.Println("Pods WARN:", key, conSpec.Name, "env", envVar.Name, "is dynamic!")
+			log.Printf("Pods TODO: EnvVariable definition: %+v", envVar)
 			conEnv[envVar.Name] = "TODO"
 		}
 	}
@@ -130,7 +130,7 @@ func ConvertContainerConfig(pod *corev1.Pod, conSpec *corev1.Container, podId st
 				volSource = &volume
 				break
 			}
-			log.Println("WARN: VolumeMount", volMount.Name, "couldn't be correlated with a Volume")
+			log.Println("Pods WARN: VolumeMount", volMount.Name, "couldn't be correlated with a Volume")
 		}
 		if volSource != nil {
 
@@ -162,7 +162,7 @@ func ConvertContainerConfig(pod *corev1.Pod, conSpec *corev1.Container, podId st
 				continue
 			}
 
-			log.Println("TODO: Volume", volMount.Name, "isn't supported!")
+			log.Println("Pods TODO: Volume", volMount.Name, "isn't supported!")
 		}
 	}
 

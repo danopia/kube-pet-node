@@ -115,7 +115,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 	if err != nil {
 		return err
 	}
-	log.Println("Pod", podCoord, "registered")
+	log.Println("Pods:", podCoord, "registered")
 
 	podRef := &corev1.ObjectReference{
 		APIVersion:      "v1",
@@ -130,14 +130,14 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 	dnsServer := net.ParseIP("10.6.0.10") // TODO
 	creation, err := d.podman.PodCreate(ctx, ConvertPodConfig(pod, dnsServer, d.cniNet))
 	if err != nil {
-		log.Println("pod create err", err)
+		log.Println("Pods: pod create err", err)
 		return err
 	}
 	d.manager.SetPodId(podCoord, creation.Id)
 
 	pullSecrets, err := d.GrabPullSecrets(podRef.Namespace, pod.Spec.ImagePullSecrets)
 	if err != nil {
-		log.Println("TODO: image pull secrets lookup err:", err)
+		log.Println("Pods TODO: image pull secrets lookup err:", err)
 		return err
 	}
 
@@ -147,7 +147,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 		if conSpec.ImagePullPolicy == corev1.PullAlways {
 			err = d.PullImage(ctx, conSpec.Image, pullSecrets, podRef)
 			if err != nil {
-				log.Println("TODO: image pull", conSpec.Image, "err", err)
+				log.Println("Pods TODO: image pull", conSpec.Image, "err", err)
 				return err
 			}
 		}
@@ -160,23 +160,23 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 
 				err := d.PullImage(ctx, conSpec.Image, pullSecrets, podRef)
 				if err != nil {
-					log.Println("TODO: image pull", conSpec.Image, "err", err)
+					log.Println("Pods TODO: image pull", conSpec.Image, "err", err)
 					return err
 				}
 
 				// ... and retry creation
 				conCreation, err = d.podman.ContainerCreate(ctx, ConvertContainerConfig(pod, &conSpec, creation.Id))
 				if err != nil {
-					log.Println("container create err", err)
+					log.Println("Pods: container create err", err)
 					return err
 				}
 
 			} else {
-				log.Println("container create err", err)
+				log.Println("Pods: container create err", err)
 				return err
 			}
 		}
-		log.Printf("container create %+v", conCreation)
+		log.Printf("Pods: container create %+v", conCreation)
 		d.events.Eventf(podRef, corev1.EventTypeNormal, "Created", "Created container %s", conSpec.Name)
 	}
 
@@ -219,10 +219,10 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 
 	msg, err := d.podman.PodStart(ctx, creation.Id)
 	if err != nil {
-		log.Println("pod start err", err)
+		log.Println("Pods: pod start err", err)
 		return err
 	}
-	log.Printf("pod started %+v", msg)
+	log.Printf("Pods: pod started %+v", msg)
 
 	pod.Status.Phase = corev1.PodRunning
 	pod.Status.StartTime = &now
@@ -232,14 +232,14 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 
 	insp, err := d.podman.PodInspect(ctx, creation.Id)
 	if err != nil {
-		log.Println("pod insp err", err)
+		log.Println("Pods: pod insp err", err)
 		return err
 	}
 	// log.Printf("pod insp %+v", insp)
 
 	infraInsp, err := d.podman.ContainerInspect(ctx, insp.InfraContainerID, false)
 	if err != nil {
-		log.Println("infra insp err", err)
+		log.Println("Pods: infra insp err", err)
 		return err
 	}
 	// log.Printf("infra insp %+v", infraInsp)
@@ -259,7 +259,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 
 		conInsp, err := d.podman.ContainerInspect(ctx, conIds.ID, false)
 		if err != nil {
-			log.Println("con insp err", err)
+			log.Println("Pods: con insp err", err)
 			continue
 		}
 		// log.Printf("con insp %+v", conInsp)
@@ -286,7 +286,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 			}
 			d.events.Eventf(podRef, corev1.EventTypeNormal, "Started", "Started container %s", cs.Name)
 		} else {
-			log.Println("Warn: failed to match container", cs.Name, "from", containerInspects)
+			log.Println("Pods Warn: failed to match container", cs.Name, "from", containerInspects)
 		}
 	}
 
@@ -298,7 +298,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 
 // UpdatePod takes a Kubernetes Pod and updates it within the provider.
 func (d *PodmanProvider) UpdatePod(ctx context.Context, pod *corev1.Pod) error {
-	log.Println("update", pod.ObjectMeta.Name)
+	log.Println("Pods: update", pod.ObjectMeta.Name)
 	return nil
 }
 
@@ -306,7 +306,7 @@ func (d *PodmanProvider) UpdatePod(ctx context.Context, pod *corev1.Pod) error {
 // expected to call the NotifyPods callback with a terminal pod status where all the containers are in a terminal
 // state, as well as the pod. DeletePod may be called multiple times for the same pod.
 func (d *PodmanProvider) DeletePod(ctx context.Context, pod *corev1.Pod) error {
-	log.Println("delete", pod.ObjectMeta.Name)
+	log.Println("Pods: delete", pod.ObjectMeta.Name)
 
 	key := pod.ObjectMeta.Namespace + "_" + pod.ObjectMeta.Name
 
@@ -320,10 +320,10 @@ func (d *PodmanProvider) DeletePod(ctx context.Context, pod *corev1.Pod) error {
 			}
 		}
 
-		log.Println("pod stop err", err)
+		log.Println("Pods: pod stop err", err)
 		return err
 	}
-	log.Printf("pod stopped %+v", msg)
+	log.Printf("Pods: pod stopped %+v", msg)
 
 	pod.Status.Conditions = []corev1.PodCondition{
 		{
@@ -359,16 +359,16 @@ func (d *PodmanProvider) DeletePod(ctx context.Context, pod *corev1.Pod) error {
 
 	err = d.manager.UnregisterPod(PodCoord{pod.ObjectMeta.Namespace, pod.ObjectMeta.Name})
 	if err != nil {
-		log.Println("pod unreg err", err)
+		log.Println("Pods: pod unreg err", err)
 		return err
 	}
 
 	rmMsg, err := d.podman.PodRm(ctx, key, false)
 	if err != nil {
-		log.Println("pod del err", err)
+		log.Println("Pods: pod del err", err)
 		return err
 	}
-	log.Printf("pod deleteded %+v", rmMsg)
+	log.Printf("Pods: pod deleteded %+v", rmMsg)
 
 	return nil
 }
@@ -378,7 +378,7 @@ func (d *PodmanProvider) DeletePod(ctx context.Context, pod *corev1.Pod) error {
 // concurrently outside of the calling goroutine. Therefore it is recommended
 // to return a version after DeepCopy.
 func (d *PodmanProvider) GetPod(ctx context.Context, namespace, name string) (*corev1.Pod, error) {
-	log.Println("get pod", namespace, name)
+	log.Println("Pods: get pod", namespace, name)
 
 	key := namespace + "_" + name
 	return d.manager.KnownPods[key].Kube, nil
@@ -389,7 +389,7 @@ func (d *PodmanProvider) GetPod(ctx context.Context, namespace, name string) (*c
 // concurrently outside of the calling goroutine. Therefore it is recommended
 // to return a version after DeepCopy.
 func (d *PodmanProvider) GetPodStatus(ctx context.Context, namespace, name string) (*corev1.PodStatus, error) {
-	log.Println("get status", namespace, name)
+	log.Println("Pods: get status", namespace, name)
 	// TODO
 	return &corev1.PodStatus{}, nil
 }
@@ -399,7 +399,7 @@ func (d *PodmanProvider) GetPodStatus(ctx context.Context, namespace, name strin
 // concurrently outside of the calling goroutine. Therefore it is recommended
 // to return a version after DeepCopy.
 func (d *PodmanProvider) GetPods(context.Context) ([]*corev1.Pod, error) {
-	log.Println("list pods")
+	log.Println("Pods: list pods")
 
 	pods := make([]*corev1.Pod, 0)
 	for _, pod := range d.manager.KnownPods {
