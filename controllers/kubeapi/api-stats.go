@@ -2,6 +2,7 @@ package kubeapi
 
 import (
 	"context"
+	"runtime"
 	"strings"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 
 func (ka *KubeApi) GetStatsSummary(ctx context.Context) (*statsv1.Summary, error) {
 
+	numCpus := uint64(runtime.NumCPU())
 	nowStamp := metav1.NewTime(time.Now())
 	var zero uint64
 
@@ -38,7 +40,7 @@ func (ka *KubeApi) GetStatsSummary(ctx context.Context) (*statsv1.Summary, error
 
 			memUsed, memAvail, _ := report.ReadMemUsage()
 			cpuPerc, _ := report.ReadCpuPercent()
-			cpuNano := uint64(cpuPerc * 100000)
+			cpuNano := uint64(cpuPerc*1000) * numCpus
 
 			totalCpu += cpuNano
 			totalMem += memUsed
