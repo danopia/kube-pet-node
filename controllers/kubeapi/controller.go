@@ -70,7 +70,13 @@ func NewKubeApi(kubernetes *kubernetes.Clientset, podManager *pods.PodManager, n
 func (ka *KubeApi) Run(ctx context.Context) {
 	defer ka.httpsLnr.Close()
 
-	ka.httpsSrv.Handler = BuildSecureApi(ka.podManager)
+	secureMux := http.NewServeMux()
+	vkapi.AttachPodRoutes(vkapi.PodHandlerConfig{
+		RunInContainer:   ka.RunInContainer,
+		GetContainerLogs: ka.GetContainerLogs,
+		GetStatsSummary:  ka.GetStatsSummary,
+	}, secureMux, true)
+	ka.httpsSrv.Handler = secureMux
 
 	insecureMux := http.NewServeMux()
 	vkapi.AttachPodMetricsRoutes(vkapi.PodMetricsConfig{
