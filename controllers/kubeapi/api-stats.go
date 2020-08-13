@@ -52,7 +52,7 @@ func (ka *KubeApi) GetStatsSummary(ctx context.Context) (*statsv1.Summary, error
 					CPU: &statsv1.CPUStats{
 						Time:                 nowStamp,
 						UsageNanoCores:       &cpuNano,
-						UsageCoreNanoSeconds: &cpuNano,
+						UsageCoreNanoSeconds: &zero,
 					},
 					Memory: &statsv1.MemoryStats{
 						Time:            nowStamp,
