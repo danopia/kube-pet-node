@@ -86,6 +86,8 @@ func main() {
 	go func() {
 		<-sig
 		cancel()
+		<-sig
+		log.Fatalln("WARN: Received second signal -- bailing without shutdown!")
 	}()
 
 	// sync our local pod info sources
