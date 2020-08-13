@@ -126,6 +126,13 @@ func (pc *PodmanClient) PodStart(ctx context.Context, nameOrId string) (*PodActi
 }
 
 // PodStats(ctx context.Context, namesOrIds []string, options PodStatsOptions) ([]*PodStatsReport, error)
+// TODO: support namesOrIds
+func (pc *PodmanClient) PodStats(ctx context.Context) ([]*PodStatsReport, error) {
+	var out []*PodStatsReport
+	return out, pc.performGet(ctx, "/libpod/pods/stats", &out)
+}
+
+// response struct defined in stats.go
 
 // PodStop(ctx context.Context, namesOrIds []string, options PodStopOptions) ([]*PodStopReport, error)
 func (pc *PodmanClient) PodStop(ctx context.Context, nameOrId string) (*PodActionReport, error) {

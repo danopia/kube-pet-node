@@ -11,6 +11,8 @@ import (
 	// certv1 "k8s.io/api/certificates/v1beta1"
 	"k8s.io/client-go/kubernetes"
 
+	vkapi "github.com/virtual-kubelet/virtual-kubelet/node/api"
+
 	"github.com/danopia/kube-pet-node/controllers/pods"
 )
 
@@ -68,10 +70,17 @@ func NewKubeApi(kubernetes *kubernetes.Clientset, podManager *pods.PodManager, n
 func (ka *KubeApi) Run(ctx context.Context) {
 	defer ka.httpsLnr.Close()
 
+	ka.httpsSrv.Handler = BuildSecureApi(ka.podManager)
+
+	insecureMux := http.NewServeMux()
+	vkapi.AttachPodMetricsRoutes(vkapi.PodMetricsConfig{
+		GetStatsSummary: ka.GetStatsSummary,
+	}, insecureMux)
+	ka.httpSrv.Handler = insecureMux
+
 	// TODO: close servers when ctx cancels
 
 	// get HTTP going immediately / in the background
-	MountApi(ka.podManager)
 	go func() {
 		defer ka.httpLnr.Close()
 		log.Fatalln(ka.httpSrv.Serve(ka.httpLnr))

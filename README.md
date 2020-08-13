@@ -24,7 +24,7 @@ I'm just tryina run some high-resource stuff out of the cloud so it's cheaper.
   * [x] exec
   * [x] logs
   * [ ] attach
-  * [ ] metrics
+  * [x] metrics
 * [ ] expose static pod representing the host system (host exec & dmesg logs)
   * (static pods have annotations incl. `kubernetes.io/config.source`)
 * [ ] emit Event resources just like kubelet

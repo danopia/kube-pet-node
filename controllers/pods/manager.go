@@ -6,7 +6,7 @@ import (
 	"log"
 
 	corev1 "k8s.io/api/core/v1"
-	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/danopia/kube-pet-node/podman"
 )
@@ -14,10 +14,16 @@ import (
 type PodManager struct {
 	podman      *podman.PodmanClient
 	specStorage *PodSpecStorage
-	knownPods   map[string]*corev1.Pod
+	KnownPods   map[string]RunningPod
 
 	// cniNet      string
 	// clusterDns  net.IP
+}
+
+type RunningPod struct {
+	Kube  *corev1.Pod
+	Coord PodCoord
+	PodId string
 }
 
 //cniNet string, clusterDns net.IP
@@ -47,7 +53,7 @@ func NewPodManager(podmanClient *podman.PodmanClient, storage *PodSpecStorage) (
 	}
 	log.Println("Pods: There are", len(foundPodMap), "found pods")
 
-	knownPods := make(map[string]*corev1.Pod)
+	knownPods := make(map[string]RunningPod)
 	for _, storedPod := range storedPodList {
 		foundPod, ok := foundPodMap[storedPod]
 		if ok {
@@ -60,7 +66,7 @@ func NewPodManager(podmanClient *podman.PodmanClient, storage *PodSpecStorage) (
 			log.Println("Correlated podspec for", storedPod)
 			// TODO: diff?
 			// TODO: stored in knownPods
-			knownPods[foundPod.Name] = podSpec
+			knownPods[foundPod.Name] = RunningPod{podSpec, storedPod, foundPod.Id}
 
 		} else {
 			log.Println("Pods: Stored pod", storedPod, "wasn't found, deleting from store")
@@ -100,7 +106,7 @@ func NewPodManager(podmanClient *podman.PodmanClient, storage *PodSpecStorage) (
 	return &PodManager{
 		podman:      podmanClient,
 		specStorage: storage,
-		knownPods:   knownPods,
+		KnownPods:   knownPods,
 
 		// cniNet:      cniNet,
 		// clusterDns: clusterDns,
@@ -111,29 +117,72 @@ func (pm *PodManager) RuntimeVersionReport(ctx context.Context) (*podman.DockerV
 	return pm.podman.Version(ctx)
 }
 
+func (pm *PodManager) SetPodId(coord PodCoord, podId string) {
+	if known, ok := pm.KnownPods[coord.Key()]; ok {
+		pm.KnownPods[coord.Key()] = RunningPod{known.Kube, coord, podId}
+		log.Println("Pods: Created pod", podId, "for", coord)
+	} else {
+		log.Println("Pods WARN: SetPodId missed for", coord, "- pod", podId)
+	}
+}
+
 func (pm *PodManager) RegisterPod(pod *corev1.Pod) (PodCoord, error) {
 	podCoord, err := pm.specStorage.StorePod(pod)
 	if err != nil {
 		return podCoord, err
 	}
-	log.Println("Pod", podCoord, "stored")
+	log.Println("Pods:", podCoord, "stored")
 
 	// TODO: mutex
-	pm.knownPods[podCoord.Key()] = pod
+	if known, ok := pm.KnownPods[podCoord.Key()]; ok {
+		pm.KnownPods[podCoord.Key()] = RunningPod{pod, podCoord, known.PodId}
+	} else {
+		pm.KnownPods[podCoord.Key()] = RunningPod{pod, podCoord, ""}
+	}
 	return podCoord, nil
 }
 
 func (pm *PodManager) UnregisterPod(podCoord PodCoord) error {
 	// TODO: mutex
-	delete(pm.knownPods, podCoord.Key())
+	delete(pm.KnownPods, podCoord.Key())
 
 	err := pm.specStorage.RemovePod(podCoord)
 	if err != nil {
 		return err
 	}
 
-	log.Println("Pod", podCoord, "removed from store")
+	log.Println("Pods:", podCoord, "removed from store")
 	return nil
+}
+
+func (pm *PodManager) GetAllStats(ctx context.Context) (map[*metav1.ObjectMeta][]*podman.PodStatsReport, error) {
+	// fetch all container reports
+	allReports, err := pm.podman.PodStats(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// group the reports by pod ID
+	podStats := make(map[string][]*podman.PodStatsReport)
+	for _, report := range allReports {
+		if others, ok := podStats[report.Pod]; ok {
+			podStats[report.Pod] = append(others, report)
+		} else {
+			podStats[report.Pod] = []*podman.PodStatsReport{report}
+		}
+	}
+
+	// associate reports with k8s pod metadata
+	podMap := make(map[*metav1.ObjectMeta][]*podman.PodStatsReport)
+	for _, pod := range pm.KnownPods {
+		if reports, ok := podStats[pod.PodId[:12]]; ok {
+			podMap[&pod.Kube.ObjectMeta] = reports
+		} else {
+			log.Println("Pods WARN: lacking stats for pod", pod.Coord)
+		}
+	}
+
+	return podMap, nil
 }
 
 func (pm *PodManager) StartExecInPod(ctx context.Context, podCoord PodCoord, containerName string, options *podman.ContainerExecOptions) (*podman.ExecSession, error) {

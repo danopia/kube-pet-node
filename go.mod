@@ -30,6 +30,7 @@ replace (
 require (
 	github.com/bep/debounce v1.2.0
 	github.com/coreos/go-semver v0.3.0
+	github.com/docker/go-units v0.4.0
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef // indirect
 	github.com/google/go-cmp v0.4.0 // indirect
@@ -56,4 +57,5 @@ require (
 	k8s.io/api v0.18.4
 	k8s.io/apimachinery v0.18.4
 	k8s.io/client-go v10.0.0+incompatible
+	k8s.io/kubernetes v1.18.4
 )

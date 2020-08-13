@@ -133,7 +133,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 		log.Println("pod create err", err)
 		return err
 	}
-	log.Printf("pod create %+v", creation)
+	d.manager.SetPodId(podCoord, creation.Id)
 
 	pullSecrets, err := d.GrabPullSecrets(podRef.Namespace, pod.Spec.ImagePullSecrets)
 	if err != nil {
@@ -381,7 +381,7 @@ func (d *PodmanProvider) GetPod(ctx context.Context, namespace, name string) (*c
 	log.Println("get pod", namespace, name)
 
 	key := namespace + "_" + name
-	return d.manager.knownPods[key], nil
+	return d.manager.KnownPods[key].Kube, nil
 }
 
 // GetPodStatus retrieves the status of a pod by name from the provider.
@@ -402,8 +402,8 @@ func (d *PodmanProvider) GetPods(context.Context) ([]*corev1.Pod, error) {
 	log.Println("list pods")
 
 	pods := make([]*corev1.Pod, 0)
-	for _, podSpec := range d.manager.knownPods {
-		pods = append(pods, podSpec)
+	for _, pod := range d.manager.KnownPods {
+		pods = append(pods, pod.Kube)
 	}
 	return pods, nil
 }

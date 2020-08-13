@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"strconv"
 
-	// statsv1 "k8s.io/kubernetes/pkg/kubelet/apis/stats/v1alpha1"
 	// utilexec "k8s.io/utils/exec"
 
 	vkapi "github.com/virtual-kubelet/virtual-kubelet/node/api"
@@ -19,9 +18,8 @@ import (
 	"github.com/danopia/kube-pet-node/podman"
 )
 
-func MountApi(podManager *pods.PodManager) {
-	// api := mux.NewRouter()
-
+func BuildSecureApi(podManager *pods.PodManager) *http.ServeMux {
+	mux := http.NewServeMux()
 	vkapi.AttachPodRoutes(vkapi.PodHandlerConfig{
 
 		// TODO
@@ -110,38 +108,8 @@ func MountApi(podManager *pods.PodManager) {
 			go podman.DemuxRawStream(logs, outW, outW, true)
 			return outR, nil
 		},
-	}, mux{}, true)
-	// vkapi.AttachPodMetricsRoutes(vkapi.PodMetricsConfig{
-
-	// 	GetStatsSummary: func(context.Context) (*statsv1.Summary, error) {
-	// 		log.Println("GetStatsSummary()")
-	// 		// https://godoc.org/k8s.io/kubernetes/pkg/kubelet/apis/stats/v1alpha1#Summary
-	// 		return &statsv1.Summary{
-	// 			Node: statsv1.NodeStats{
-	// 				NodeName: "todo",
-	// 			},
-	// 			Pods: []statsv1.PodStats{
-
-	// 			},
-	// 		}, nil
-	// 	},
-
-	// }, mux{})
-
-	// srv := &http.Server{
-	// 		Handler:      api,
-	// 		Addr:         nodeIP.String()+":8000",
-	// 		WriteTimeout: 15 * time.Second,
-	// 		ReadTimeout:  15 * time.Second,
-	// }
-
-	// log.Fatal(http.ListenAndServe(nodeIP.String()+":10250", nil))
-}
-
-type mux struct{}
-
-func (m mux) Handle(pattern string, handler http.Handler) {
-	http.Handle(pattern, handler)
+	}, mux, true)
+	return mux
 }
 
 type exitError struct {
