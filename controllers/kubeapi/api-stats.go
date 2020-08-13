@@ -38,9 +38,9 @@ func (ka *KubeApi) GetStatsSummary(ctx context.Context) (*statsv1.Summary, error
 
 			memUsed, memAvail, _ := report.ReadMemUsage()
 			cpuPerc, _ := report.ReadCpuPercent()
-			cpuMilli := uint64(cpuPerc * 1000)
+			cpuNano := uint64(cpuPerc * 100000)
 
-			totalCpu += cpuMilli
+			totalCpu += cpuNano
 			totalMem += memUsed
 
 			// Don't return infra containers themselves
@@ -51,8 +51,8 @@ func (ka *KubeApi) GetStatsSummary(ctx context.Context) (*statsv1.Summary, error
 					StartTime: nowStamp,
 					CPU: &statsv1.CPUStats{
 						Time:                 nowStamp,
-						UsageNanoCores:       &cpuMilli,
-						UsageCoreNanoSeconds: &cpuMilli,
+						UsageNanoCores:       &cpuNano,
+						UsageCoreNanoSeconds: &cpuNano,
 					},
 					Memory: &statsv1.MemoryStats{
 						Time:            nowStamp,
