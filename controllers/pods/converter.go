@@ -95,6 +95,8 @@ func ConvertContainerConfig(pod *corev1.Pod, conSpec *corev1.Container, podId st
 	var isSystemd string
 	if value, ok := pod.ObjectMeta.Annotations["vk.podman.io/systemd."+conSpec.Name]; ok {
 		isSystemd = value
+	} else if value, ok := pod.ObjectMeta.Annotations["vk.podman.io/is-systemd"]; ok {
+		isSystemd = value
 	}
 
 	cpuShares := uint64(milliCPUToShares(conSpec.Resources.Requests.Cpu().MilliValue()))
