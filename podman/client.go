@@ -112,7 +112,7 @@ func (pc *PodmanClient) performPost(ctx context.Context, path string, input inte
 		return err
 	}
 
-	log.Printf("curl -XPOST http://podman/v1.0.0/%v -H 'Content-Type: application/json' --data '%v'", path, string(reqBody))
+	// log.Printf("curl -XPOST http://podman/v1.0.0%v -H 'Content-Type: application/json' --data '%v'", path, string(reqBody))
 	req, err := http.NewRequestWithContext(ctx, "POST", "http://podman/v1.0.0"+path, bytes.NewBuffer(reqBody))
 	req.Header.Set("content-type", "application/json")
 	req.Header.Set("accept", "application/json")

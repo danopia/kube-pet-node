@@ -2,7 +2,6 @@ package pods
 
 import (
 	"encoding/json"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -57,7 +56,7 @@ func (pss *PodSpecStorage) ListAllPods() ([]PodCoord, error) {
 		}
 	}
 
-	log.Println("Pods: Found stored pods", list)
+	// log.Println("Pods: Found stored pods", list)
 	return list, nil
 }
 

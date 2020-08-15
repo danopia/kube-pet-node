@@ -3,7 +3,7 @@ package podman
 import (
 	"context"
 	"encoding/base64"
-	"log"
+	// "log"
 	"net/http"
 	"time"
 )
@@ -68,12 +68,12 @@ func (pc *PodmanClient) Pull(ctx context.Context, reference string, authConfig [
 	req.Header.Set("accept", "application/json")
 
 	// Pass docker auth if provided
-	var authHeader string
+	// var authHeader string
 	if authConfig != nil {
-		authHeader = " -H 'X-Registry-Auth: [redacted]'"
+		// authHeader = " -H 'X-Registry-Auth: [redacted]'"
 		req.Header.Set("x-registry-auth", base64.StdEncoding.EncodeToString(authConfig))
 	}
-	log.Printf("curl -XPOST http://podman/v1.0.0/%v%v", path, authHeader)
+	// log.Printf("curl -XPOST http://podman/v1.0.0%v", path)
 
 	var out []ImagePullReport
 	return out, pc.performJsonRequest(req, path, &out)

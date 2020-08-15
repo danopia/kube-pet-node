@@ -115,7 +115,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 	if err != nil {
 		return err
 	}
-	log.Println("Pods:", podCoord, "registered")
+	// log.Println("Pods:", podCoord, "registered")
 
 	podRef := &corev1.ObjectReference{
 		APIVersion:      "v1",
@@ -152,7 +152,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 			}
 		}
 
-		conCreation, err := d.podman.ContainerCreate(ctx, ConvertContainerConfig(pod, &conSpec, creation.Id))
+		_, err := d.podman.ContainerCreate(ctx, ConvertContainerConfig(pod, &conSpec, creation.Id))
 		if err != nil {
 
 			// Pull on-the-spot for IfNotPresent
@@ -165,7 +165,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 				}
 
 				// ... and retry creation
-				conCreation, err = d.podman.ContainerCreate(ctx, ConvertContainerConfig(pod, &conSpec, creation.Id))
+				_, err = d.podman.ContainerCreate(ctx, ConvertContainerConfig(pod, &conSpec, creation.Id))
 				if err != nil {
 					log.Println("Pods: container create err", err)
 					return err
@@ -176,7 +176,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 				return err
 			}
 		}
-		log.Printf("Pods: container create %+v", conCreation)
+		// log.Printf("Pods: container create %+v", conCreation)
 		d.events.Eventf(podRef, corev1.EventTypeNormal, "Created", "Created container %s", conSpec.Name)
 	}
 
@@ -217,12 +217,12 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 	d.podNotifier(pod)
 	d.manager.RegisterPod(pod)
 
-	msg, err := d.podman.PodStart(ctx, creation.Id)
+	_, err = d.podman.PodStart(ctx, creation.Id)
 	if err != nil {
 		log.Println("Pods: pod start err", err)
 		return err
 	}
-	log.Printf("Pods: pod started %+v", msg)
+	// log.Printf("Pods: pod started %+v", msg)
 
 	pod.Status.Phase = corev1.PodRunning
 	pod.Status.StartTime = &now
@@ -323,7 +323,7 @@ func (d *PodmanProvider) DeletePod(ctx context.Context, pod *corev1.Pod) error {
 		log.Println("Pods: pod stop err", err)
 		return err
 	}
-	log.Printf("Pods: pod stopped %+v", msg)
+	// log.Printf("Pods: pod stopped %+v", msg)
 
 	pod.Status.Conditions = []corev1.PodCondition{
 		{
@@ -363,12 +363,12 @@ func (d *PodmanProvider) DeletePod(ctx context.Context, pod *corev1.Pod) error {
 		return err
 	}
 
-	rmMsg, err := d.podman.PodRm(ctx, key, false)
+	_, err = d.podman.PodRm(ctx, key, false)
 	if err != nil {
 		log.Println("Pods: pod del err", err)
 		return err
 	}
-	log.Printf("Pods: pod deleteded %+v", rmMsg)
+	// log.Printf("Pods: pod deleteded %+v", rmMsg)
 
 	return nil
 }

@@ -131,7 +131,7 @@ func (pm *PodManager) RegisterPod(pod *corev1.Pod) (PodCoord, error) {
 	if err != nil {
 		return podCoord, err
 	}
-	log.Println("Pods:", podCoord, "stored")
+	log.Println("Pods:", podCoord, "registered")
 
 	// TODO: mutex
 	if known, ok := pm.KnownPods[podCoord.Key()]; ok {
