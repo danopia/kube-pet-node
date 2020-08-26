@@ -58,8 +58,8 @@ func NewPetNodeProvider(node *corev1.Node, petVersion string, conVersion *podman
 			"hugepages-2Mi":     resource.MustParse("0"),
 		},
 		Allocatable: corev1.ResourceList{
-			"cpu":               resource.MustParse("1000m"),
-			"memory":            resource.MustParse("1000Mi"),
+			"cpu":               *resource.NewScaledQuantity(int64(runtime.NumCPU()) / 2, 0),
+			"memory":            *resource.NewQuantity(int64(memory.TotalMemory()) / 2, resource.BinarySI),
 			"pods":              resource.MustParse(strconv.Itoa(maxPods)),
 			"ephemeral-storage": resource.MustParse("1Gi"), // TODO
 			"hugepages-2Mi":     resource.MustParse("0"),
