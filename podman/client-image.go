@@ -1,9 +1,12 @@
 package podman
 
 import (
+	"bufio"
 	"context"
 	"encoding/base64"
-	// "log"
+	"encoding/json"
+	"io"
+	"log"
 	"net/http"
 	"time"
 )
@@ -54,7 +57,7 @@ type ImageSummary struct {
 // Prune(ctx context.Context, opts ImagePruneOptions) (*ImagePruneReport, error)
 
 // Pull(ctx context.Context, rawImage string, opts ImagePullOptions) (*ImagePullReport, error)
-func (pc *PodmanClient) Pull(ctx context.Context, reference string, authConfig []byte) ([]ImagePullReport, error) {
+func (pc *PodmanClient) Pull(ctx context.Context, reference string, authConfig []byte) (<-chan ImagePullReport, error) {
 	encoded, err := UrlEncoded(reference)
 	if err != nil {
 		return nil, err
@@ -73,14 +76,54 @@ func (pc *PodmanClient) Pull(ctx context.Context, reference string, authConfig [
 		// authHeader = " -H 'X-Registry-Auth: [redacted]'"
 		req.Header.Set("x-registry-auth", base64.StdEncoding.EncodeToString(authConfig))
 	}
-	// log.Printf("curl -XPOST http://podman/v1.0.0%v", path)
 
-	var out []ImagePullReport
-	return out, pc.performJsonRequest(req, path, &out)
+	resp, err := pc.performRequest(req, path)
+	if err != nil {
+		return nil, err
+	}
+	log.Println("ImagePullReport stream resp:", resp)
+
+	stream := make(chan ImagePullReport)
+	go func(r io.ReadCloser, c chan<- ImagePullReport) {
+		scanner := bufio.NewScanner(r)
+		defer close(c)
+		for scanner.Scan() {
+			chunk := []byte(scanner.Text())
+
+			if chunk[0] == '[' {
+				var events []ImagePullReport
+				if err := json.Unmarshal(chunk, &events); err != nil {
+					log.Println("ImagePullReport array err:", err)
+					c <- ImagePullReport{Error: err.Error()}
+					break
+				} else {
+					for _, event := range events {
+						c <- event
+					}
+				}
+
+			} else {
+				var event ImagePullReport
+				if err := json.Unmarshal(chunk, &event); err != nil {
+					log.Println("ImagePullReport stream err:", err)
+					c <- ImagePullReport{Error: err.Error()}
+					break
+				} else {
+					c <- event
+				}
+			}
+		}
+		log.Println("ImagePullReport stream closed")
+	}(resp.Body, stream)
+
+	return stream, nil
 }
 
 type ImagePullReport struct {
-	Id string
+	Stream string
+	Error  string
+	Images []string
+	Id     string
 }
 
 // Push(ctx context.Context, source string, destination string, opts ImagePushOptions) error

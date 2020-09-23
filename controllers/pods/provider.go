@@ -3,6 +3,7 @@ package pods
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -54,11 +55,31 @@ func (d *PodmanProvider) GrabPullSecrets(namespace string, secretRefs []corev1.L
 	return secrets, nil
 }
 
+func processPullStream(events <-chan podman.ImagePullReport) (ids []string, err error) {
+	for event := range events {
+		switch {
+		case event.Stream != "":
+			log.Println("PULL STDOUT:", event.Stream)
+		case event.Error != "":
+			log.Println("PULL STDERR:", event.Error)
+			err = errors.New(event.Error)
+		case len(event.Images) > 0:
+			ids = event.Images
+		}
+	}
+	return
+}
+
 func (d *PodmanProvider) PullImage(ctx context.Context, imageRef string, pullSecrets []*corev1.Secret, podRef *corev1.ObjectReference) error {
 	d.events.Eventf(podRef, corev1.EventTypeNormal, "Pulling", "Pulling image \"%s\"", imageRef)
 
-	imgIds, err := d.podman.Pull(ctx, imageRef, nil)
+	pullStream, err := d.podman.Pull(ctx, imageRef, nil)
 	if err == nil {
+		imgIds, err := processPullStream(pullStream)
+		if err != nil {
+			return err
+		}
+
 		log.Println("Pulled images", imgIds, "for", podRef.Namespace, "/", podRef.Name)
 		d.events.Eventf(podRef, corev1.EventTypeNormal, "Pulled", "Successfully pulled public image \"%s\"", imageRef)
 		return nil
@@ -86,8 +107,13 @@ func (d *PodmanProvider) PullImage(ctx context.Context, imageRef string, pullSec
 			return jerr // TODO: wrap
 		}
 
-		imgIds, err = d.podman.Pull(ctx, imageRef, authBody)
+		pullStream, err = d.podman.Pull(ctx, imageRef, authBody)
 		if err == nil {
+			imgIds, err := processPullStream(pullStream)
+			if err != nil {
+				return err
+			}
+
 			log.Println("Pulled PRIVATE images", imgIds, "for", podRef.Namespace, "/", podRef.Name)
 			d.events.Eventf(podRef, corev1.EventTypeNormal, "Pulled", "Successfully pulled private image \"%s\"", imageRef)
 			return nil
