@@ -56,15 +56,24 @@ func (d *PodmanProvider) GrabPullSecrets(namespace string, secretRefs []corev1.L
 }
 
 func processPullStream(events <-chan podman.ImagePullReport) (ids []string, err error) {
+	var lastLine string
 	for event := range events {
 		switch {
 		case event.Stream != "":
 			log.Println("PULL STDOUT:", event.Stream)
+			lastLine = event.Stream
 		case event.Error != "":
 			log.Println("PULL STDERR:", event.Error)
 			err = errors.New(event.Error)
 		case len(event.Images) > 0:
 			ids = event.Images
+		}
+	}
+	// check for cases where there's no error and no IDs
+	if len(ids) == 0 && err == nil {
+		log.Println("PULL RESULT MISSING!")
+		if lastLine != "" {
+			err = errors.New(lastLine)
 		}
 	}
 	return
