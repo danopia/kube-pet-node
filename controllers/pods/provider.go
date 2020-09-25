@@ -85,13 +85,13 @@ func (d *PodmanProvider) PullImage(ctx context.Context, imageRef string, pullSec
 	pullStream, err := d.podman.Pull(ctx, imageRef, nil)
 	if err == nil {
 		imgIds, err := processPullStream(pullStream)
-		if err != nil {
+		if err == nil {
+			log.Println("Pulled images", imgIds, "for", podRef.Namespace, "/", podRef.Name)
+			d.events.Eventf(podRef, corev1.EventTypeNormal, "Pulled", "Successfully pulled public image \"%s\"", imageRef)
+			return nil
+		} else if !strings.Contains(err.Error(), "unauthorized") {
 			return err
 		}
-
-		log.Println("Pulled images", imgIds, "for", podRef.Namespace, "/", podRef.Name)
-		d.events.Eventf(podRef, corev1.EventTypeNormal, "Pulled", "Successfully pulled public image \"%s\"", imageRef)
-		return nil
 	} else if !strings.Contains(err.Error(), "unauthorized") {
 		return err
 	}
@@ -111,21 +111,21 @@ func (d *PodmanProvider) PullImage(ctx context.Context, imageRef string, pullSec
 		if err := json.Unmarshal(dockerconfjson, &dockerconf); err != nil {
 			return err // TODO: wrap
 		}
-		authBody, jerr := json.Marshal(&dockerconf.Auths)
-		if jerr != nil {
-			return jerr // TODO: wrap
+		authBody, err := json.Marshal(&dockerconf.Auths)
+		if err != nil {
+			return err // TODO: wrap
 		}
 
 		pullStream, err = d.podman.Pull(ctx, imageRef, authBody)
 		if err == nil {
 			imgIds, err := processPullStream(pullStream)
-			if err != nil {
+			if err == nil {
+				log.Println("Pulled PRIVATE images", imgIds, "for", podRef.Namespace, "/", podRef.Name)
+				d.events.Eventf(podRef, corev1.EventTypeNormal, "Pulled", "Successfully pulled private image \"%s\"", imageRef)
+				return nil
+			} else if !strings.Contains(err.Error(), "unauthorized") {
 				return err
 			}
-
-			log.Println("Pulled PRIVATE images", imgIds, "for", podRef.Namespace, "/", podRef.Name)
-			d.events.Eventf(podRef, corev1.EventTypeNormal, "Pulled", "Successfully pulled private image \"%s\"", imageRef)
-			return nil
 		} else if !strings.Contains(err.Error(), "unauthorized") {
 			return err
 		}
