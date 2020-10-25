@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"time"
 
 	// utilexec "k8s.io/utils/exec"
 
@@ -52,6 +53,18 @@ func (ka *KubeApi) RunInContainer(ctx context.Context, namespace, podName, conta
 	if input != nil && attach.Stdin() != nil {
 		go io.Copy(input, attach.Stdin())
 	}
+
+	// keep the exec session alive with zero-byte writes
+	go func() {
+		for {
+			time.Sleep(30 * time.Second)
+			_, err = attach.Stdout().Write([]byte{})
+			if err != nil {
+				return
+			}
+		}
+		log.Println("Done keeping exec alive")
+	}()
 
 	if attach.TTY() {
 		// TODO: why does TTY not have stdout/stderr split??
