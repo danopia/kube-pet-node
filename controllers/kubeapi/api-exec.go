@@ -57,10 +57,10 @@ func (ka *KubeApi) RunInContainer(ctx context.Context, namespace, podName, conta
 	// keep the exec session alive with zero-byte writes
 	go func() {
 		for {
-			time.Sleep(30 * time.Second)
+			time.Sleep(15 * time.Second)
 			_, err = attach.Stdout().Write([]byte{})
 			if err != nil {
-				return
+				break
 			}
 		}
 		log.Println("Done keeping exec alive")

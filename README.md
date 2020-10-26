@@ -5,8 +5,8 @@ Proof of Concept
 ```
 dan@penguin ~> kubectl get nodes
 NAME                               STATUS   ROLES    AGE     VERSION
-pet-laxbox                         Ready    pet      11h     metal/v0.1.0
-pet-atlbox                         Ready    pet      45m     metal/v0.1.0
+pet-laxbox                         Ready    pet      11h     kube-pet/0.2.1-h76.6eb474f
+pet-atlbox                         Ready    pet      45m     kube-pet/0.2.1-h76.6eb474f
 gke-dust-persist3-190b8935-jvph    Ready    app      89d     v1.16.8-gke.15
 gke-dust-volatile1-b331c9e9-fk37   Ready    app      2d16h   v1.16.8-gke.15
 ```
@@ -17,7 +17,7 @@ The concept is taking a managed cloud-based control plane and adding external ba
 I'm just tryina run some high-resource stuff out of the cloud so it's cheaper.
 
 ### v1 goals
-* [ ] learn a shitton about what kubelet actually does and how a Kubernetes node works
+* [x] learn a shitton about what kubelet actually does and how a Kubernetes node works
 * [ ] run reasonably sane Kubernetes pods
 * [x] request our own api certificates automatically
 * provide interactive container apis:
@@ -36,10 +36,15 @@ I'm just tryina run some high-resource stuff out of the cloud so it's cheaper.
 * [x] report our Internet address in node status (for dynamic dns purposes)
 * [x] require as few permissions as possible - non-root, plus CAP_NET_ADMIN and access to a root podman
 * [ ] reasonable volume support
+  * [ ] Check for volume updates
   * [x] HostPath volumes
+  * [x] Secret volumes
   * [ ] ConfigMap volumes
-  * [ ] Secret volumes
-  * [ ] EmptyDir volumes
+  * [x] Projected volumes (ServiceAccountToken, for EKS pod identity)
+    * [ ] Automatic token rotation
+  * [ ] Projected volumes (Secret & ConfigMap)
+  * [ ] Projected volumes (Downward API)
+  * [x] EmptyDir volumes
   * [ ] NFS volumes
 * [ ] support downward IP in envars
 * [x] include build version in our Node resources

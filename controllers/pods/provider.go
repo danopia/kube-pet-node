@@ -12,9 +12,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	listers_corev1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/record"
 
+	"github.com/danopia/kube-pet-node/controllers/caching"
+	"github.com/danopia/kube-pet-node/controllers/volumes"
 	"github.com/danopia/kube-pet-node/podman"
 )
 
@@ -22,19 +23,21 @@ type PodmanProvider struct {
 	podman  *podman.PodmanClient
 	manager *PodManager
 	events  record.EventRecorder
-	secrets listers_corev1.SecretLister
+	volumes *volumes.VolumesController
+	caching *caching.Controller
 	cniNet  string
 	// pods        map[string]*corev1.Pod
 	podNotifier func(*corev1.Pod)
 	// specStorage *PodSpecStorage
 }
 
-func NewPodmanProvider(podManager *PodManager, events record.EventRecorder, secrets listers_corev1.SecretLister, cniNet string) *PodmanProvider {
+func NewPodmanProvider(podManager *PodManager, caching *caching.Controller, volumes *volumes.VolumesController, events record.EventRecorder, cniNet string) *PodmanProvider {
 	return &PodmanProvider{
 		podman:  podManager.podman,
 		manager: podManager,
 		events:  events,
-		secrets: secrets,
+		volumes: volumes,
+		caching: caching,
 		cniNet:  cniNet,
 		// pods:        make(map[string]*corev1.Pod),
 		podNotifier: func(*corev1.Pod) {},
@@ -42,11 +45,10 @@ func NewPodmanProvider(podManager *PodManager, events record.EventRecorder, secr
 	}
 }
 
-func (d *PodmanProvider) GrabPullSecrets(namespace string, secretRefs []corev1.LocalObjectReference) ([]*corev1.Secret, error) {
-	lister := d.secrets.Secrets(namespace)
+func (d *PodmanProvider) GrabPullSecrets(ctx context.Context, namespace string, secretRefs []corev1.LocalObjectReference) ([]*corev1.Secret, error) {
 	secrets := make([]*corev1.Secret, len(secretRefs))
 	for idx, ref := range secretRefs {
-		secret, err := lister.Get(ref.Name)
+		secret, err := d.caching.GetSecret(ctx, namespace, ref.Name)
 		if err != nil {
 			return secrets, err
 		}
@@ -162,6 +164,12 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 		// FieldPath:        "spec.containers{app}",
 	}
 
+	err = d.volumes.CreatePodVolumes(ctx, pod)
+	if err != nil {
+		log.Println("Pods: volumes create err", err)
+		return err
+	}
+
 	dnsServer := net.ParseIP("10.6.0.10") // TODO
 	creation, err := d.podman.PodCreate(ctx, ConvertPodConfig(pod, dnsServer, d.cniNet))
 	if err != nil {
@@ -170,7 +178,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 	}
 	d.manager.SetPodId(podCoord, creation.Id)
 
-	pullSecrets, err := d.GrabPullSecrets(podRef.Namespace, pod.Spec.ImagePullSecrets)
+	pullSecrets, err := d.GrabPullSecrets(ctx, podRef.Namespace, pod.Spec.ImagePullSecrets)
 	if err != nil {
 		log.Println("Pods TODO: image pull secrets lookup err:", err)
 		return err
@@ -301,13 +309,13 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 		containerInspects[conInsp.Config.Labels["k8s-name"]] = conInsp
 	}
 
-	for idx, _ := range pod.Status.Conditions {
+	for idx := range pod.Status.Conditions {
 		cond := &pod.Status.Conditions[idx]
 		if cond.Type == corev1.PodReady {
 			cond.Status = corev1.ConditionTrue
 		}
 	}
-	for idx, _ := range pod.Status.ContainerStatuses {
+	for idx := range pod.Status.ContainerStatuses {
 		cs := &pod.Status.ContainerStatuses[idx]
 		if insp, ok := containerInspects[cs.Name]; ok {
 			cs.Ready = true
@@ -404,6 +412,12 @@ func (d *PodmanProvider) DeletePod(ctx context.Context, pod *corev1.Pod) error {
 		return err
 	}
 	// log.Printf("Pods: pod deleteded %+v", rmMsg)
+
+	err = d.volumes.CleanupVolumes(ctx, &pod.ObjectMeta)
+	if err != nil {
+		log.Println("Pods: volumes cleanup err", err)
+		return err
+	}
 
 	return nil
 }

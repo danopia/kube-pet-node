@@ -60,7 +60,6 @@ func ConvertPodConfig(pod *corev1.Pod, clusterDns net.IP, cniNet string) *podman
 	// TODO: HostPID
 	// TODO: HostIPC
 	// TODO: SecurityContext
-	// TODO: ImagePullSecrets
 	// TODO: HostAliases
 	// TODO: DNSConfig (easy)
 	// TODO: SetHostnameAsFQDN (easy)
@@ -159,10 +158,14 @@ func ConvertContainerConfig(pod *corev1.Pod, conSpec *corev1.Container, podId st
 					Options:     flags,
 				})
 
-				continue
+			} else {
+				// assume the volume was set up elsewhere
+				// TODO: there's still some volumes that we don't have implemented
+				volumes = append(volumes, &podman.NamedVolume{
+					Name: string(pod.ObjectMeta.UID) + "_" + volMount.Name,
+					Dest: volMount.MountPath,
+				})
 			}
-
-			log.Println("Pods TODO: Volume", volMount.Name, "isn't supported!")
 		}
 	}
 

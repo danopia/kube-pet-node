@@ -10,8 +10,12 @@ kube-pet ALL=NOPASSWD: /bin/systemctl enable wg-quick@*, /bin/systemctl disable 
 #kube-pet ALL=NOPASSWD: /bin/systemctl start container-*, /bin/systemctl stop container-*
 #kube-pet ALL=NOPASSWD: /bin/systemctl enable /opt/kube-pet-node/unit-files/*, /bin/systemctl disable /opt/kube-pet-node/unit-files/*
 
+# Volumes: install piped contents into Podman-created directories
+kube-pet ALL=NOPASSWD: /bin/tar -xf - *
+
 # SmartDrive
-kube-pet ALL=NOPASSWD: /usr/sbin/smartctl -a -- *
+# this should be in a container instead
+#kube-pet ALL=NOPASSWD: /usr/sbin/smartctl -a -- *
 
 # ContainerNetwork
 #kube-pet ALL=NOPASSWD: /usr/bin/tee /etc/cni/net.d/*.conflist, /bin/rm /etc/cni/net.d/*.conflist

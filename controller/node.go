@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
 	// coordv1 "k8s.io/api/coordination/v1beta1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	// corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -20,15 +21,18 @@ import (
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
+
 	// "github.com/virtual-kubelet/virtual-kubelet/log"
 
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	"github.com/danopia/kube-pet-node/controllers/autoupgrade"
+	"github.com/danopia/kube-pet-node/controllers/caching"
 	"github.com/danopia/kube-pet-node/controllers/firewall"
 	"github.com/danopia/kube-pet-node/controllers/kubeapi"
 	"github.com/danopia/kube-pet-node/controllers/nodeidentity"
 	"github.com/danopia/kube-pet-node/controllers/pods"
+	"github.com/danopia/kube-pet-node/controllers/volumes"
 	// "github.com/danopia/kube-pet-node/podman"
 )
 
@@ -41,6 +45,7 @@ type PetNode struct {
 	// our controllers
 	Firewall *firewall.FirewallController
 	// Pods          *pods.FirewallController
+	// Volumes *volumes.VolumesController
 
 	// virtual-kubelet controllers
 	NodeRunner *node.NodeController
@@ -74,6 +79,10 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 	if err != nil {
 		return nil, err
 	}
+
+	caching := caching.NewController(kubernetes)
+
+	volumes := volumes.NewVolumesController(kubernetes, caching, podManager.GetPodman())
 
 	//https://github.com/virtual-kubelet/virtual-kubelet/blob/3ec3b14e49d0c2f335ca049155d1ee94b2baf35f/cmd/virtual-kubelet/internal/commands/root/root.go
 
@@ -119,7 +128,7 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 	// setup other things
 	podRunner, err := node.NewPodController(node.PodControllerConfig{
 		PodClient: kubernetes.CoreV1(),
-		Provider:  pods.NewPodmanProvider(podManager, kubeletEvents, secretInformer.Lister(), cniNet),
+		Provider:  pods.NewPodmanProvider(podManager, caching, volumes, kubeletEvents, cniNet),
 
 		PodInformer:       podInformer,
 		EventRecorder:     kubeletEvents,

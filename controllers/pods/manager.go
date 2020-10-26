@@ -20,6 +20,10 @@ type PodManager struct {
 	// clusterDns  net.IP
 }
 
+func (pm *PodManager) GetPodman() *podman.PodmanClient {
+	return pm.podman
+}
+
 type RunningPod struct {
 	Kube  *corev1.Pod
 	Coord PodCoord
@@ -175,6 +179,10 @@ func (pm *PodManager) GetAllStats(ctx context.Context) (map[*metav1.ObjectMeta][
 	// associate reports with k8s pod metadata
 	podMap := make(map[*metav1.ObjectMeta][]*podman.PodStatsReport)
 	for _, pod := range pm.KnownPods {
+		if pod.PodId == "" {
+			log.Println("Pods WARN: lacking ID for pod", pod.Coord)
+			continue
+		}
 		if reports, ok := podStats[pod.PodId[:12]]; ok {
 			podMap[&pod.Kube.ObjectMeta] = reports
 		} else {
