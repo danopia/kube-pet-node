@@ -15,7 +15,7 @@ func startArchiveExtractin(ctx context.Context, dest string) (*ArchiveExtraction
 	if os.Getuid() == 1 {
 		cmd = exec.CommandContext(ctx, "tar", "-xf", "-", "-C", dest)
 	} else {
-		cmd = exec.CommandContext(ctx, "sudo", "tar", "-xvf", "-", "-C", dest)
+		cmd = exec.CommandContext(ctx, "sudo", "tar", "-xf", "-", "-C", dest)
 	}
 
 	stdin, err := cmd.StdinPipe()
