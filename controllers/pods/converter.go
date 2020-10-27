@@ -3,6 +3,7 @@ package pods
 import (
 	"log"
 	"net"
+	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -169,6 +170,56 @@ func ConvertContainerConfig(pod *corev1.Pod, conSpec *corev1.Container, podId st
 		}
 	}
 
+	securityCfg := podman.ContainerSecurityConfig{}
+	if conSpec.SecurityContext != nil {
+		if conSpec.SecurityContext.Privileged != nil {
+			securityCfg.Privileged = *conSpec.SecurityContext.Privileged
+		}
+		if conSpec.SecurityContext.RunAsUser != nil {
+			securityCfg.User = strconv.FormatInt(*conSpec.SecurityContext.RunAsUser, 10)
+		} else if pod.Spec.SecurityContext.RunAsUser != nil {
+			securityCfg.User = strconv.FormatInt(*pod.Spec.SecurityContext.RunAsUser, 10)
+		}
+		// QUIRK: kubernetes allows specifying exactly one GID to be the effective group; podman takes a list of group names to add the user to
+		if conSpec.SecurityContext.RunAsGroup != nil {
+			securityCfg.Groups = []string{strconv.FormatInt(*conSpec.SecurityContext.RunAsGroup, 10)}
+		} else if pod.Spec.SecurityContext.RunAsGroup != nil {
+			securityCfg.Groups = []string{strconv.FormatInt(*pod.Spec.SecurityContext.RunAsGroup, 10)}
+		}
+		if conSpec.SecurityContext.Capabilities != nil {
+			for _, cap := range conSpec.SecurityContext.Capabilities.Add {
+				securityCfg.CapAdd = append(securityCfg.CapAdd, string(cap))
+			}
+			for _, cap := range conSpec.SecurityContext.Capabilities.Drop {
+				securityCfg.CapDrop = append(securityCfg.CapDrop, string(cap))
+			}
+		}
+		if conSpec.SecurityContext.SELinuxOptions != nil {
+			// podman says: valid options 'disable, user, role, level, type, filetype'
+			// TODO: selinux label disable
+			if conSpec.SecurityContext.SELinuxOptions.User != "" {
+				securityCfg.SelinuxOpts = append(securityCfg.SelinuxOpts, "label=user:"+conSpec.SecurityContext.SELinuxOptions.User)
+			}
+			if conSpec.SecurityContext.SELinuxOptions.Role != "" {
+				securityCfg.SelinuxOpts = append(securityCfg.SelinuxOpts, "label=role:"+conSpec.SecurityContext.SELinuxOptions.Role)
+			}
+			if conSpec.SecurityContext.SELinuxOptions.Level != "" {
+				securityCfg.SelinuxOpts = append(securityCfg.SelinuxOpts, "label=level:"+conSpec.SecurityContext.SELinuxOptions.Level)
+			}
+			if conSpec.SecurityContext.SELinuxOptions.Type != "" {
+				securityCfg.SelinuxOpts = append(securityCfg.SelinuxOpts, "label=type:"+conSpec.SecurityContext.SELinuxOptions.Type)
+			}
+			// TODO: selinux label filetype
+		}
+		// TODO: seccomp, apparmer
+		if conSpec.SecurityContext.AllowPrivilegeEscalation != nil {
+			securityCfg.NoNewPrivileges = !*conSpec.SecurityContext.AllowPrivilegeEscalation
+		}
+		if conSpec.SecurityContext.ReadOnlyRootFilesystem != nil {
+			securityCfg.ReadOnlyFilesystem = *conSpec.SecurityContext.ReadOnlyRootFilesystem
+		}
+	}
+
 	return &podman.SpecGenerator{
 		ContainerBasicConfig: podman.ContainerBasicConfig{
 			Name:       key + "_" + conSpec.Name,
@@ -214,7 +265,9 @@ func ConvertContainerConfig(pod *corev1.Pod, conSpec *corev1.Container, podId st
 			// RootfsPropagation string `json:"rootfs_propagation,omitempty"`
 		},
 
-		// TODO: ContainerSecurityConfig
+		// ContainerSecurityConfig is a container's security features, including
+		// SELinux, Apparmor, and Seccomp.
+		ContainerSecurityConfig: securityCfg,
 
 		ContainerResourceConfig: podman.ContainerResourceConfig{
 			ResourceLimits: resources,
@@ -235,8 +288,8 @@ func ConvertContainerConfig(pod *corev1.Pod, conSpec *corev1.Container, podId st
 	// TODO: Ports
 	// TODO: EnvFrom
 	// Env
-	// TODO: Resources
-	// TODO: VolumeMounts
+	// Resources
+	// VolumeMounts
 	// TODO: VolumeDevices
 	// TODO: LivenessProbe
 	// TODO: ReadinessProbe
@@ -245,7 +298,7 @@ func ConvertContainerConfig(pod *corev1.Pod, conSpec *corev1.Container, podId st
 	// TODO: TerminationMessagePath
 	// TODO: TerminationMessagePolicy
 	// TODO: ImagePullPolicy
-	// TODO: SecurityContext
+	// SecurityContext
 	// Stdin
 	// TODO: StdinOnce
 	// TTY

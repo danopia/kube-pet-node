@@ -35,8 +35,10 @@ I'm just tryina run some high-resource stuff out of the cloud so it's cheaper.
 * [x] support imagepullsecrets
 * [x] report our Internet address in node status (for dynamic dns purposes)
 * [x] require as few permissions as possible - non-root, plus CAP_NET_ADMIN and access to a root podman
+  * though, currently using a scoped sudoers file for installing volume contents and other misc tasks
+* [x] SELinux compatibility (the Kubernetes fields, and also volume relabelling via annotation)
 * [ ] reasonable volume support
-  * [ ] Check for volume updates
+  * [ ] Check for secret/configmap updates
   * [x] HostPath volumes
   * [x] Secret volumes
   * [ ] ConfigMap volumes
