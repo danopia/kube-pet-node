@@ -198,16 +198,16 @@ func ConvertContainerConfig(pod *corev1.Pod, conSpec *corev1.Container, podId st
 			// podman says: valid options 'disable, user, role, level, type, filetype'
 			// TODO: selinux label disable
 			if conSpec.SecurityContext.SELinuxOptions.User != "" {
-				securityCfg.SelinuxOpts = append(securityCfg.SelinuxOpts, "label=user:"+conSpec.SecurityContext.SELinuxOptions.User)
+				securityCfg.SelinuxOpts = append(securityCfg.SelinuxOpts, "user:"+conSpec.SecurityContext.SELinuxOptions.User)
 			}
 			if conSpec.SecurityContext.SELinuxOptions.Role != "" {
-				securityCfg.SelinuxOpts = append(securityCfg.SelinuxOpts, "label=role:"+conSpec.SecurityContext.SELinuxOptions.Role)
+				securityCfg.SelinuxOpts = append(securityCfg.SelinuxOpts, "role:"+conSpec.SecurityContext.SELinuxOptions.Role)
 			}
 			if conSpec.SecurityContext.SELinuxOptions.Level != "" {
-				securityCfg.SelinuxOpts = append(securityCfg.SelinuxOpts, "label=level:"+conSpec.SecurityContext.SELinuxOptions.Level)
+				securityCfg.SelinuxOpts = append(securityCfg.SelinuxOpts, "level:"+conSpec.SecurityContext.SELinuxOptions.Level)
 			}
 			if conSpec.SecurityContext.SELinuxOptions.Type != "" {
-				securityCfg.SelinuxOpts = append(securityCfg.SelinuxOpts, "label=type:"+conSpec.SecurityContext.SELinuxOptions.Type)
+				securityCfg.SelinuxOpts = append(securityCfg.SelinuxOpts, "type:"+conSpec.SecurityContext.SELinuxOptions.Type)
 			}
 			// TODO: selinux label filetype
 		}
