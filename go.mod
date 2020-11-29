@@ -34,7 +34,7 @@ require (
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef // indirect
 	github.com/google/go-cmp v0.4.0 // indirect
-	github.com/google/nftables v0.0.0-20200316075819-7127d9d22474
+	github.com/google/nftables v0.0.0-20200802175506-c25e4f69b425
 	github.com/gorilla/mux v1.7.4 // indirect
 	github.com/imdario/mergo v0.3.9 // indirect
 	github.com/json-iterator/go v1.1.9 // indirect
@@ -57,5 +57,6 @@ require (
 	k8s.io/api v0.18.4
 	k8s.io/apimachinery v0.18.4
 	k8s.io/client-go v10.0.0+incompatible
+	k8s.io/klog v1.0.0
 	k8s.io/kubernetes v1.18.4
 )
