@@ -20,29 +20,32 @@ import (
 	"github.com/danopia/kube-pet-node/podman"
 )
 
+// TODO: IPv6 can't be enabled until virtual-kubelet fixes corruption
+
 // PetNodeProvider is a node provider that fills in
 // the status and health for our Kubernetes Node object.
 type PetNodeProvider struct {
-	node        *corev1.Node
-	nodeStatus  *corev1.NodeStatus
-	externalIpC <-chan string
+	node          *corev1.Node
+	nodeStatus    *corev1.NodeStatus
+	externalIPV4C <-chan string
+	// externalIPV6C <-chan string
 }
 
 func NewPetNodeProvider(node *corev1.Node, petVersion string, conVersion *podman.DockerVersionReport, maxPods int, nodeIP net.IP) (*PetNodeProvider, error) {
 
 	log.Println("NodeIdentity: Building initial node status...")
 
-	machineId, err := ioutil.ReadFile("/etc/machine-id")
+	machineID, err := ioutil.ReadFile("/etc/machine-id")
 	if err != nil {
 		return nil, err
 	}
-	machineIdStr := strings.Trim(string(machineId), "\n")
+	machineIDStr := strings.Trim(string(machineID), "\n")
 
-	bootId, err := ioutil.ReadFile("/proc/sys/kernel/random/boot_id")
+	bootID, err := ioutil.ReadFile("/proc/sys/kernel/random/boot_id")
 	if err != nil {
 		return nil, err
 	}
-	bootIdStr := strings.Trim(string(bootId), "\n")
+	bootIDStr := strings.Trim(string(bootID), "\n")
 
 	osPrettyName, err := findosPrettyName("/etc/os-release")
 	if err != nil {
@@ -103,8 +106,8 @@ func NewPetNodeProvider(node *corev1.Node, petVersion string, conVersion *podman
 		},
 		NodeInfo: corev1.NodeSystemInfo{
 			Architecture:            conVersion.Arch,
-			BootID:                  bootIdStr,
-			MachineID:               machineIdStr,
+			BootID:                  bootIDStr,
+			MachineID:               machineIDStr,
 			KernelVersion:           conVersion.KernelVersion,
 			OSImage:                 osPrettyName,
 			ContainerRuntimeVersion: "podman://" + conVersion.Version,
@@ -125,11 +128,7 @@ func NewPetNodeProvider(node *corev1.Node, petVersion string, conVersion *podman
 				Type:    corev1.NodeInternalDNS,
 				Address: node.ObjectMeta.Name + ".local",
 			},
-			// { // TODO: look up on da.gd/ip or something
-			// 	Type:    corev1.NodeExternalIP,
-			// 	Address: "35.222.199.140",
-			// },
-			// also NodeExternalDNS
+			// also NodeExternalDNS maybe someday
 		},
 		DaemonEndpoints: corev1.NodeDaemonEndpoints{
 			KubeletEndpoint: corev1.DaemonEndpoint{
@@ -138,17 +137,39 @@ func NewPetNodeProvider(node *corev1.Node, petVersion string, conVersion *podman
 		},
 	}
 
-	ipC, readyC := WatchInternetV4Address()
+	ipV4C, readyV4C := WatchInternetAddress("4.da.gd")
+	// ipV6C, readyV6C := WatchInternetAddress("6.da.gd")
+	timeout := time.After(5 * time.Second)
+
 	select {
-	case <-readyC:
-	case <-time.After(5 * time.Second):
-		log.Println("NodeIdentity: timeout waiting for our Internet IP address")
+	case externalV4IP := <-ipV4C:
+		nodeStatus.Addresses = append(nodeStatus.Addresses, corev1.NodeAddress{
+			Type:    corev1.NodeExternalIP,
+			Address: externalV4IP,
+		})
+		log.Println("NodeIdentity: Added ExternalIP V4 to our status")
+	case <-readyV4C:
+	case <-timeout:
+		log.Println("NodeIdentity: timeout waiting for our Internet IPv4 address")
 	}
 
+	// select {
+	// case externalV6IP := <-ipV6C:
+	// 	nodeStatus.Addresses = append(nodeStatus.Addresses, corev1.NodeAddress{
+	// 		Type:    corev1.NodeExternalIP,
+	// 		Address: externalV6IP,
+	// 	})
+	// 	log.Println("NodeIdentity: Added ExternalIP V6 to our status")
+	// case <-readyV6C:
+	// case <-timeout:
+	// 	log.Println("NodeIdentity: timeout waiting for our Internet IPv6 address")
+	// }
+
 	return &PetNodeProvider{
-		node:        node,
-		nodeStatus:  nodeStatus,
-		externalIpC: ipC,
+		node:          node,
+		nodeStatus:    nodeStatus,
+		externalIPV4C: ipV4C,
+		// externalIPV6C: ipV6C,
 	}, nil
 }
 
@@ -166,22 +187,43 @@ func (np *PetNodeProvider) NotifyNodeStatus(ctx context.Context, f func(*corev1.
 		for {
 			select {
 
-			case externalIp := <-np.externalIpC:
+			case externalV4IP := <-np.externalIPV4C:
 				matched := false
 				for idx := range np.nodeStatus.Addresses {
 					if np.nodeStatus.Addresses[idx].Type == corev1.NodeExternalIP {
-						matched = true
-						np.nodeStatus.Addresses[idx].Address = externalIp
-						log.Println("NodeIdentity: Updated ExternalIP in our status")
+						if strings.Contains(np.nodeStatus.Addresses[idx].Address, ".") {
+							matched = true
+							np.nodeStatus.Addresses[idx].Address = externalV4IP
+							log.Println("NodeIdentity: Updated ExternalIP V4 in our status")
+						}
 					}
 				}
 				if !matched {
 					np.nodeStatus.Addresses = append(np.nodeStatus.Addresses, corev1.NodeAddress{
 						Type:    corev1.NodeExternalIP,
-						Address: externalIp,
+						Address: externalV4IP,
 					})
-					log.Println("NodeIdentity: Added ExternalIP to our status")
+					log.Println("NodeIdentity: Added ExternalIP V4 to our status")
 				}
+
+			// case externalV6IP := <-np.externalIPV6C:
+			// 	matched := false
+			// 	for idx := range np.nodeStatus.Addresses {
+			// 		if np.nodeStatus.Addresses[idx].Type == corev1.NodeExternalIP {
+			// 			if strings.Contains(np.nodeStatus.Addresses[idx].Address, ":") {
+			// 				matched = true
+			// 				np.nodeStatus.Addresses[idx].Address = externalV6IP
+			// 				log.Println("NodeIdentity: Updated ExternalIP V6 in our status")
+			// 			}
+			// 		}
+			// 	}
+			// 	if !matched {
+			// 		np.nodeStatus.Addresses = append(np.nodeStatus.Addresses, corev1.NodeAddress{
+			// 			Type:    corev1.NodeExternalIP,
+			// 			Address: externalV6IP,
+			// 		})
+			// 		log.Println("NodeIdentity: Added ExternalIP V6 to our status")
+			// 	}
 
 			case <-ticker.C:
 				log.Println("NodeIdentity: Performing periodic status refresh")

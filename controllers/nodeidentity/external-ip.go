@@ -9,8 +9,9 @@ import (
 
 var client *http.Client = &http.Client{}
 
-func FetchInternetV4Address() (string, error) {
-	req, err := http.NewRequest("GET", "https://4.da.gd/ip?strip", nil)
+// FetchInternetAddress hits a dagd server (such as 4.da.gd, 6.da.gd) for our Internet Protocol address
+func FetchInternetAddress(hostname string) (string, error) {
+	req, err := http.NewRequest("GET", "https://"+hostname+"/ip?strip", nil)
 	if err != nil {
 		return "", err
 	}
@@ -29,17 +30,18 @@ func FetchInternetV4Address() (string, error) {
 	return string(body), nil
 }
 
-func WatchInternetV4Address() (<-chan string, <-chan struct{}) {
+// WatchInternetAddress polls a dagd server (such as 4.da.gd, 6.da.gd) regularly for our Internet Protocol address
+func WatchInternetAddress(hostname string) (<-chan string, <-chan struct{}) {
 	addrC := make(chan string, 1)
 	readyC := make(chan struct{})
 	go func(outC chan<- string, readyC chan<- struct{}) {
 		var knownAddr string
 
 		for {
-			if addr, err := FetchInternetV4Address(); err != nil {
-				log.Println("NodeIdentity WARN: Failed to fetch our IPv4 Address.", err)
+			if addr, err := FetchInternetAddress(hostname); err != nil {
+				log.Println("NodeIdentity WARN: Failed to fetch our IP Address from", hostname, ":", err)
 			} else if addr != knownAddr {
-				log.Println("NodeIdentity: Discovered our IPv4 Address as", addr)
+				log.Println("NodeIdentity: Discovered our IP Address from", hostname, "as", addr)
 				outC <- addr
 				knownAddr = addr
 			}
