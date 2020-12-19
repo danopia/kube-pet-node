@@ -277,6 +277,12 @@ func ConvertContainerConfig(pod *corev1.Pod, conSpec *corev1.Container, podId st
 		ContainerCgroupConfig: podman.ContainerCgroupConfig{
 			CgroupsMode: "enabled",
 		},
+
+		ContainerHealthCheckConfig: podman.ContainerHealthCheckConfig{
+			HealthConfig: &podman.ContainerHealthConfig{
+				Test: []string{"NONE"},
+			},
+		},
 	}
 
 	// container spec, exhasutive as of july 2020

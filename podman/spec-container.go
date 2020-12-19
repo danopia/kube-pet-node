@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"syscall"
+	"time"
 	// "github.com/containers/image/v5/manifest"
 	// "github.com/containers/storage"
 	// spec "github.com/opencontainers/runtime-spec/specs-go"
@@ -396,7 +397,7 @@ type ContainerResourceConfig struct {
 // ContainerHealthCheckConfig describes a container healthcheck with attributes
 // like command, retries, interval, start period, and timeout.
 type ContainerHealthCheckConfig struct {
-	// HealthConfig *manifest.Schema2HealthConfig `json:"healthconfig,omitempty"`
+	HealthConfig *ContainerHealthConfig `json:"healthconfig,omitempty"`
 }
 
 // SpecGenerator creates an OCI spec and Libpod configuration options to create
@@ -658,4 +659,26 @@ type LinuxRdma struct {
 	HcaHandles *uint32 `json:"hcaHandles,omitempty"`
 	// Maximum number of HCA objects that can be created. Default is "no limit".
 	HcaObjects *uint32 `json:"hcaObjects,omitempty"`
+}
+
+// ContainerHealthConfig is a HealthConfig, which holds configuration settings
+// for the HEALTHCHECK feature, from docker/docker/api/types/container.
+type ContainerHealthConfig struct {
+	// Test is the test to perform to check that the container is healthy.
+	// An empty slice means to inherit the default.
+	// The options are:
+	// {} : inherit healthcheck
+	// {"NONE"} : disable healthcheck
+	// {"CMD", args...} : exec arguments directly
+	// {"CMD-SHELL", command} : run command with system's default shell
+	Test []string `json:",omitempty"`
+
+	// Zero means to inherit. Durations are expressed as integer nanoseconds.
+	StartPeriod time.Duration `json:",omitempty"` // StartPeriod is the time to wait after starting before running the first check.
+	Interval    time.Duration `json:",omitempty"` // Interval is the time to wait between checks.
+	Timeout     time.Duration `json:",omitempty"` // Timeout is the time to wait before considering the check to have hung.
+
+	// Retries is the number of consecutive failures needed to consider a container as unhealthy.
+	// Zero means inherit.
+	Retries int `json:",omitempty"`
 }
