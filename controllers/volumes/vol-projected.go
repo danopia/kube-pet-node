@@ -62,7 +62,7 @@ func (ctl *VolumesController) CreateProjectedVolume(ctx context.Context, pod *co
 
 	// TODO: only emit these on first setup
 	for path := range paths {
-		tar.WriteSymLink(path, strings.Repeat("../", strings.Count(path, "/")-1)+"..data/current/"+path)
+		tar.WriteSymLink(path, strings.Repeat("../", strings.Count(path, "/"))+"..data/current/"+path)
 	}
 
 	if err := tar.Finish(); err != nil {

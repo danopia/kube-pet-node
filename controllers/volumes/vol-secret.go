@@ -70,7 +70,7 @@ func (ctl *VolumesController) CreateSecretVolume(ctx context.Context, podMeta *m
 
 		// TODO: only emit these on first setup
 		for _, item := range secretSource.Items {
-			tar.WriteSymLink(item.Path, strings.Repeat("../", strings.Count(item.Path, "/")-1)+"..data/current/"+item.Path)
+			tar.WriteSymLink(item.Path, strings.Repeat("../", strings.Count(item.Path, "/"))+"..data/current/"+item.Path)
 		}
 
 	}
