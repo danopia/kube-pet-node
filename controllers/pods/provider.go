@@ -148,6 +148,12 @@ type DockerCredential struct {
 
 // CreatePod takes a Kubernetes Pod and deploys it within the provider.
 func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
+	if val, ok := pod.Annotations["kubernetes.io/config.source"]; ok && val == "file" {
+		// A static pod, presumably from us; just ignore it for now
+		log.Println("Pods: Received create for a static pod", pod.ObjectMeta.Name)
+		return nil
+	}
+
 	podCoord, err := d.manager.RegisterPod(pod)
 	if err != nil {
 		return err
@@ -349,6 +355,13 @@ func (d *PodmanProvider) UpdatePod(ctx context.Context, pod *corev1.Pod) error {
 // expected to call the NotifyPods callback with a terminal pod status where all the containers are in a terminal
 // state, as well as the pod. DeletePod may be called multiple times for the same pod.
 func (d *PodmanProvider) DeletePod(ctx context.Context, pod *corev1.Pod) error {
+
+	if val, ok := pod.Annotations["kubernetes.io/config.source"]; ok && val == "file" {
+		// A static pod, presumably from us; just ignore it for now
+		log.Println("Pods: Received delete for a static pod", pod.ObjectMeta.Name)
+		return nil
+	}
+
 	log.Println("Pods: delete", pod.ObjectMeta.Name)
 
 	key := pod.ObjectMeta.Namespace + "_" + pod.ObjectMeta.Name

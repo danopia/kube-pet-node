@@ -39,6 +39,7 @@ import (
 type PetNode struct {
 	// our clients
 	NodeName   string
+	NodeUID    types.UID
 	PodManager *pods.PodManager
 	Kubernetes *kubernetes.Clientset
 
@@ -149,22 +150,9 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 	}
 	go kubeApi.Run(ctx)
 
-	go autoUpgrade.Run(ctx, configMapInformer)
-
-	go nodeRunner.Run(ctx)
-
-	go podRunner.Run(ctx, 1) // number of sync workers
-	log.Println("Starting...")
-	<-nodeRunner.Ready()
-	log.Println("Node runner ready")
-	podInformerFactory.Start(ctx.Done())
-	scmInformerFactory.Start(ctx.Done())
-	log.Println("Informers started")
-
-	kubeletEvents.Eventf(nodeRef, corev1.EventTypeNormal, "Starting" /*StartingKubelet*/, "Starting kube-pet-node.")
-
-	return &PetNode{
+	petNode := &PetNode{
 		NodeName:   nodeName,
+		NodeUID:    types.UID(nodeName), // to be replaced
 		Kubernetes: kubernetes,
 		PodManager: podManager,
 
@@ -176,5 +164,35 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 		SecretInformer:    secretInformer,
 		ConfigMapInformer: configMapInformer,
 		ServiceInformer:   serviceInformer,
-	}, nil
+	}
+
+	go autoUpgrade.Run(ctx, configMapInformer)
+
+	go nodeRunner.Run(ctx)
+
+	go podRunner.Run(ctx, 1) // number of sync workers
+	log.Println("Starting...")
+	<-nodeRunner.Ready()
+	log.Println("Node runner ready")
+
+	if node, err := kubernetes.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{}); err == nil {
+		petNode.NodeUID = node.UID
+		nodeRef.UID = node.UID
+	} else {
+		log.Println("BUG: We didn't see our own node after starting up!")
+		return nil, err
+	}
+
+	log.Println("Ensuring static pods...")
+	if err := petNode.EnsureStaticPods(ctx); err != nil {
+		log.Println("WARN: Static pods couldn't be ensured because", err)
+	}
+
+	podInformerFactory.Start(ctx.Done())
+	scmInformerFactory.Start(ctx.Done())
+	log.Println("Informers started")
+
+	kubeletEvents.Eventf(nodeRef, corev1.EventTypeNormal, "Starting" /*StartingKubelet*/, "Starting kube-pet-node.")
+
+	return petNode, nil
 }
