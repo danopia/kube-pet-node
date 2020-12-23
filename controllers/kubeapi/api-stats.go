@@ -121,7 +121,7 @@ func (ka *KubeApi) GetStatsSummary(ctx context.Context) (*statsv1.Summary, error
 		})
 	}
 
-	var filler uint64 = 69000000
+	var filler uint64 = 0
 	// https://godoc.org/k8s.io/kubernetes/pkg/kubelet/apis/stats/v1alpha1#Summary
 	return &statsv1.Summary{
 		Node: statsv1.NodeStats{
