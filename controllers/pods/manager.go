@@ -79,7 +79,7 @@ func NewPodManager(podmanClient *podman.PodmanClient, storage *PodSpecStorage) (
 				if len(nameParts) >= 3 {
 					containerIDs[nameParts[2]] = container.Id
 				} else {
-					containerIDs[""] = container.Id
+					containerIDs["_infra"] = container.Id
 				}
 			}
 
