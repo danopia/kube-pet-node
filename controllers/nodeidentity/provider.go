@@ -32,7 +32,6 @@ type PetNodeProvider struct {
 }
 
 func NewPetNodeProvider(node *corev1.Node, petVersion string, conVersion *podman.DockerVersionReport, maxPods int, nodeIP net.IP) (*PetNodeProvider, error) {
-
 	log.Println("NodeIdentity: Building initial node status...")
 
 	machineID, err := ioutil.ReadFile("/etc/machine-id")
@@ -96,13 +95,6 @@ func NewPetNodeProvider(node *corev1.Node, petVersion string, conVersion *podman
 				Status:             "False",
 				Type:               "PIDPressure",
 			},
-			{
-				LastTransitionTime: metav1.NewTime(time.Now()),
-				Message:            "Hello World",
-				Reason:             "OK",
-				Status:             "False",
-				Type:               "NetworkUnavailable",
-			},
 		},
 		NodeInfo: corev1.NodeSystemInfo{
 			Architecture:            conVersion.Arch,
@@ -121,10 +113,6 @@ func NewPetNodeProvider(node *corev1.Node, petVersion string, conVersion *podman
 				Address: node.ObjectMeta.Name,
 			},
 			{
-				Type:    corev1.NodeInternalIP,
-				Address: nodeIP.String(),
-			},
-			{
 				Type:    corev1.NodeInternalDNS,
 				Address: node.ObjectMeta.Name + ".local",
 			},
@@ -135,6 +123,33 @@ func NewPetNodeProvider(node *corev1.Node, petVersion string, conVersion *podman
 				Port: 10250,
 			},
 		},
+	}
+
+	if len(nodeIP) > 0 {
+		nodeStatus.Addresses = append(nodeStatus.Addresses, corev1.NodeAddress{
+			Type:    corev1.NodeInternalIP,
+			Address: nodeIP.String(),
+		})
+		nodeStatus.Conditions = append(nodeStatus.Conditions, corev1.NodeCondition{
+			LastTransitionTime: metav1.NewTime(time.Now()),
+			Message:            "Hello World",
+			Reason:             "OK",
+			Status:             "False",
+			Type:               "NetworkUnavailable",
+		})
+
+	} else {
+		nodeStatus.Conditions = append(nodeStatus.Conditions, corev1.NodeCondition{
+			LastTransitionTime: metav1.NewTime(time.Now()),
+			Message:            "No node IP detected. Auto provisioning should fix this soon.",
+			Reason:             "NoAddress",
+			Status:             "True",
+			Type:               "NetworkUnavailable",
+		})
+		// TODO: better way of driving the primary 'Ready' condition
+		nodeStatus.Conditions[0].Status = "False"
+		nodeStatus.Conditions[0].Reason = "NoAddress"
+		nodeStatus.Conditions[0].Message = "No node IP detected"
 	}
 
 	ipV4C, readyV4C := WatchInternetAddress("4.da.gd")
