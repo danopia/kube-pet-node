@@ -130,43 +130,53 @@ func ConvertContainerConfig(pod *corev1.Pod, conSpec *corev1.Container, podId st
 				volSource = &volume
 				break
 			}
-			log.Println("Pods WARN: VolumeMount", volMount.Name, "couldn't be correlated with a Volume")
 		}
-		if volSource != nil {
+		if volSource == nil {
+			log.Println("Pods WARN: VolumeMount", volMount.Name, "couldn't be correlated with a Volume")
+			continue
+		}
 
-			if volSource.VolumeSource.HostPath != nil {
-				// TODO: volSource.VolumeSource.HostPath.Type
-				flag := "rw"
-				if volMount.ReadOnly {
-					flag = "ro"
-				}
-				flags := []string{flag}
-
-				// https://github.com/containers/podman/blob/0d26a573e3cf8cc5baea84206a86cb83b433b6d5/pkg/util/mountOpts.go#L107
-				if value, ok := pod.ObjectMeta.Annotations["vk.podman.io/volume-selinux."+volMount.Name]; ok {
-					switch value {
-					case "relabel-private":
-						flags = append(flags, "Z")
-					case "relabel-shared":
-						flags = append(flags, "z")
-					}
-				}
-
-				mounts = append(mounts, podman.Mount{
-					Type:        "bind",
-					Source:      volSource.VolumeSource.HostPath.Path + volMount.SubPath,
-					Destination: volMount.MountPath,
-					Options:     flags,
-				})
-
-			} else {
-				// assume the volume was set up elsewhere
-				// TODO: there's still some volumes that we don't have implemented
-				volumes = append(volumes, &podman.NamedVolume{
-					Name: string(pod.ObjectMeta.UID) + "_" + volMount.Name,
-					Dest: volMount.MountPath,
-				})
+		if volSource.VolumeSource.HostPath != nil {
+			// TODO: volSource.VolumeSource.HostPath.Type
+			flag := "rw"
+			if volMount.ReadOnly {
+				flag = "ro"
 			}
+			flags := []string{flag}
+
+			// https://github.com/containers/podman/blob/0d26a573e3cf8cc5baea84206a86cb83b433b6d5/pkg/util/mountOpts.go#L107
+			if value, ok := pod.ObjectMeta.Annotations["vk.podman.io/volume-selinux."+volMount.Name]; ok {
+				switch value {
+				case "relabel-private":
+					flags = append(flags, "Z")
+				case "relabel-shared":
+					flags = append(flags, "z")
+				}
+			}
+
+			mounts = append(mounts, podman.Mount{
+				Type:        "bind",
+				Source:      volSource.VolumeSource.HostPath.Path + volMount.SubPath,
+				Destination: volMount.MountPath,
+				Options:     flags,
+			})
+
+		} else if volSource.VolumeSource.EmptyDir != nil && volSource.VolumeSource.EmptyDir.Medium == corev1.StorageMediumMemory {
+			// TODO: this doesn't really work if the same EmptyDir is in multiple places
+			// probably want to warn and/or crash the pod in that case
+			mounts = append(mounts, podman.Mount{
+				Type:        "tmpfs",
+				Source:      "tmpfs",
+				Destination: volMount.MountPath,
+			})
+
+		} else {
+			// assume the volume was set up elsewhere
+			// TODO: there's still some volumes that we don't have implemented
+			volumes = append(volumes, &podman.NamedVolume{
+				Name: string(pod.ObjectMeta.UID) + "_" + volMount.Name,
+				Dest: volMount.MountPath,
+			})
 		}
 	}
 

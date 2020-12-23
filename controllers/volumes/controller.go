@@ -64,8 +64,13 @@ func (ctl *VolumesController) CreatePodVolumes(ctx context.Context, pod *corev1.
 
 		if spec.VolumeSource.HostPath != nil {
 			// nothing, is a bind later
+			continue
 
 		} else if spec.VolumeSource.EmptyDir != nil {
+			if spec.VolumeSource.EmptyDir.Medium == corev1.StorageMediumMemory {
+				// nothing, will make a tmpfs within the container later
+				continue
+			}
 			volPath, err := ctl.CreateRuntimeVolume(ctx, string(pod.ObjectMeta.UID), "emptydir", spec.Name)
 			if err != nil {
 				return err
