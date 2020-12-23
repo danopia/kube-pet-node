@@ -55,12 +55,12 @@ func splitHumanValues(combined string) (uint64, uint64, error) {
 
 	parts := strings.Split(combined, " / ")
 
-	left, err := units.FromHumanSize(parts[0])
+	left, err := fromHumanBinarySize(parts[0])
 	if err != nil {
 		return 0, 0, err
 	}
 
-	right, err := units.FromHumanSize(parts[1])
+	right, err := fromHumanBinarySize(parts[1])
 	if err != nil {
 		return 0, 0, err
 	}
@@ -74,4 +74,9 @@ func (psr PodStatsReport) ReadPids() (uint64, error) {
 	}
 
 	return strconv.ParseUint(psr.PIDS, 10, 32)
+}
+
+func fromHumanBinarySize(size string) (int64, error) {
+	lastIdx := len(size) - 1
+	return units.FromHumanSize(size[:lastIdx] + "i" + size[lastIdx:])
 }
