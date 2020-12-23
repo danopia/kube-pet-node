@@ -23,10 +23,17 @@ type KubeApi struct {
 	nodeName   string
 	nodeIP     net.IP
 
+	prevStats map[string]prevStat
+
 	httpSrv  *http.Server
 	httpLnr  net.Listener
 	httpsSrv *http.Server
 	httpsLnr net.Listener
+}
+
+type prevStat struct {
+	cpu  uint64
+	time uint64
 }
 
 func NewKubeApi(kubernetes *kubernetes.Clientset, podManager *pods.PodManager, nodeName string, nodeIP net.IP) (*KubeApi, error) {
@@ -59,6 +66,8 @@ func NewKubeApi(kubernetes *kubernetes.Clientset, podManager *pods.PodManager, n
 		podManager: podManager,
 		nodeName:   nodeName,
 		nodeIP:     nodeIP,
+
+		prevStats: map[string]prevStat{},
 
 		httpSrv:  httpSrv,
 		httpLnr:  httpLnr,

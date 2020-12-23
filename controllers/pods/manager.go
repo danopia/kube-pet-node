@@ -2,8 +2,10 @@ package pods
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,9 +27,10 @@ func (pm *PodManager) GetPodman() *podman.PodmanClient {
 }
 
 type RunningPod struct {
-	Kube  *corev1.Pod
-	Coord PodCoord
-	PodId string
+	Kube         *corev1.Pod
+	Coord        PodCoord
+	PodId        string
+	ContainerIDs map[string]string
 }
 
 //cniNet string, clusterDns net.IP
@@ -69,8 +72,18 @@ func NewPodManager(podmanClient *podman.PodmanClient, storage *PodSpecStorage) (
 			}
 			log.Println("Correlated podspec for", storedPod)
 			// TODO: diff?
-			// TODO: stored in knownPods
-			knownPods[foundPod.Name] = RunningPod{podSpec, storedPod, foundPod.Id}
+
+			containerIDs := make(map[string]string, len(foundPod.Containers))
+			for _, container := range foundPod.Containers {
+				nameParts := strings.Split(container.Names, "_")
+				if len(nameParts) >= 3 {
+					containerIDs[nameParts[2]] = container.Id
+				} else {
+					containerIDs[""] = container.Id
+				}
+			}
+
+			knownPods[foundPod.Name] = RunningPod{podSpec, storedPod, foundPod.Id, containerIDs}
 
 		} else {
 			log.Println("Pods: Stored pod", storedPod, "wasn't found, deleting from store")
@@ -123,10 +136,19 @@ func (pm *PodManager) RuntimeVersionReport(ctx context.Context) (*podman.DockerV
 
 func (pm *PodManager) SetPodId(coord PodCoord, podId string) {
 	if known, ok := pm.KnownPods[coord.Key()]; ok {
-		pm.KnownPods[coord.Key()] = RunningPod{known.Kube, coord, podId}
+		pm.KnownPods[coord.Key()] = RunningPod{known.Kube, coord, podId, known.ContainerIDs}
 		log.Println("Pods: Created pod", podId, "for", coord)
 	} else {
 		log.Println("Pods WARN: SetPodId missed for", coord, "- pod", podId)
+	}
+}
+
+func (pm *PodManager) SetContainerIDs(coord PodCoord, containerIDs map[string]string) {
+	if known, ok := pm.KnownPods[coord.Key()]; ok {
+		pm.KnownPods[coord.Key()] = RunningPod{known.Kube, coord, known.PodId, containerIDs}
+		log.Println("Pods: Have", len(containerIDs), "containers", containerIDs, "for", coord)
+	} else {
+		log.Println("Pods WARN: SetContainerIDs missed for", coord, "- containers", containerIDs)
 	}
 }
 
@@ -139,9 +161,9 @@ func (pm *PodManager) RegisterPod(pod *corev1.Pod) (PodCoord, error) {
 
 	// TODO: mutex
 	if known, ok := pm.KnownPods[podCoord.Key()]; ok {
-		pm.KnownPods[podCoord.Key()] = RunningPod{pod, podCoord, known.PodId}
+		pm.KnownPods[podCoord.Key()] = RunningPod{pod, podCoord, known.PodId, known.ContainerIDs}
 	} else {
-		pm.KnownPods[podCoord.Key()] = RunningPod{pod, podCoord, ""}
+		pm.KnownPods[podCoord.Key()] = RunningPod{pod, podCoord, "", map[string]string{}}
 	}
 	return podCoord, nil
 }
@@ -159,35 +181,34 @@ func (pm *PodManager) UnregisterPod(podCoord PodCoord) error {
 	return nil
 }
 
-func (pm *PodManager) GetAllStats(ctx context.Context) (map[*metav1.ObjectMeta][]*podman.PodStatsReport, error) {
+func (pm *PodManager) GetAllStats(ctx context.Context) (map[*metav1.ObjectMeta]map[string]*podman.ContainerStats, error) {
 	// fetch all container reports
-	allReports, err := pm.podman.PodStats(ctx)
+	report, err := pm.podman.ContainerStats(ctx)
 	if err != nil {
 		return nil, err
 	}
+	if report.Error != "" {
+		return nil, fmt.Errorf("Container stats API gave error: %s", report.Error)
+	}
 
-	// group the reports by pod ID
-	podStats := make(map[string][]*podman.PodStatsReport)
-	for _, report := range allReports {
-		if others, ok := podStats[report.Pod]; ok {
-			podStats[report.Pod] = append(others, report)
-		} else {
-			podStats[report.Pod] = []*podman.PodStatsReport{report}
-		}
+	// index the reports by container ID
+	containerStats := make(map[string]*podman.ContainerStats)
+	for _, containerReport := range report.Stats {
+		containerStats[containerReport.ContainerID] = &containerReport
 	}
 
 	// associate reports with k8s pod metadata
-	podMap := make(map[*metav1.ObjectMeta][]*podman.PodStatsReport)
+	podMap := make(map[*metav1.ObjectMeta]map[string]*podman.ContainerStats)
 	for _, pod := range pm.KnownPods {
-		if pod.PodId == "" {
-			log.Println("Pods WARN: lacking ID for pod", pod.Coord)
-			continue
+		containerMap := make(map[string]*podman.ContainerStats, len(pod.ContainerIDs))
+		for conName, conID := range pod.ContainerIDs {
+			if conReport, ok := containerStats[conID]; ok {
+				containerMap[conName] = conReport
+			} else {
+				log.Println("Pods WARN: lacking stats for pod", pod.Coord)
+			}
 		}
-		if reports, ok := podStats[pod.PodId[:12]]; ok {
-			podMap[&pod.Kube.ObjectMeta] = reports
-		} else {
-			log.Println("Pods WARN: lacking stats for pod", pod.Coord)
-		}
+		podMap[&pod.Kube.ObjectMeta] = containerMap
 	}
 
 	return podMap, nil

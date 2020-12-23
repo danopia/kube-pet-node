@@ -154,6 +154,30 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 		return nil
 	}
 
+	now := metav1.NewTime(time.Now())
+	pod.Status = corev1.PodStatus{
+		// HostIP: d.manager.NodeIP, // TODO!
+		Phase: "ContainerCreating", // TODO: is this correct? not spec'd, but is used by kubelet?
+		Conditions: []corev1.PodCondition{
+			{
+				Type:               corev1.PodScheduled,
+				Status:             corev1.ConditionTrue,
+				LastTransitionTime: now,
+			},
+			{
+				Type:               corev1.PodInitialized,
+				Status:             corev1.ConditionFalse,
+				LastTransitionTime: now,
+			},
+			{
+				Type:               corev1.PodReady,
+				Status:             corev1.ConditionFalse,
+				LastTransitionTime: now,
+			},
+		},
+	}
+	d.podNotifier(pod)
+
 	podCoord, err := d.manager.RegisterPod(pod)
 	if err != nil {
 		return err
@@ -176,13 +200,22 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 		return err
 	}
 
-	dnsServer := net.ParseIP("10.6.0.10") // TODO
+	dnsServer := net.ParseIP("10.6.0.10") // TODO!
 	creation, err := d.podman.PodCreate(ctx, ConvertPodConfig(pod, dnsServer, d.cniNet))
 	if err != nil {
 		log.Println("Pods: pod create err", err)
 		return err
 	}
 	d.manager.SetPodId(podCoord, creation.Id)
+
+	// Start the container ID list - won't be complete for a bit though
+	containerIDs := make(map[string]string, len(pod.Spec.Containers)+1)
+	if podInsp, err := d.podman.PodInspect(ctx, creation.Id); err != nil {
+		log.Println("Pods: initial pod insp err", err)
+		return err
+	} else {
+		containerIDs["_infra"] = podInsp.InfraContainerID
+	}
 
 	pullSecrets, err := d.GrabPullSecrets(ctx, podRef.Namespace, pod.Spec.ImagePullSecrets)
 	if err != nil {
@@ -201,7 +234,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 			}
 		}
 
-		_, err := d.podman.ContainerCreate(ctx, ConvertContainerConfig(pod, &conSpec, creation.Id))
+		creation, err := d.podman.ContainerCreate(ctx, ConvertContainerConfig(pod, &conSpec, creation.Id))
 		if err != nil {
 
 			// Pull on-the-spot for IfNotPresent
@@ -209,12 +242,13 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 
 				err := d.PullImage(ctx, conSpec.Image, pullSecrets, podRef)
 				if err != nil {
+					// TODO: go into ImagePullBackoff
 					log.Println("Pods TODO: image pull", conSpec.Image, "err", err)
 					return err
 				}
 
 				// ... and retry creation
-				_, err = d.podman.ContainerCreate(ctx, ConvertContainerConfig(pod, &conSpec, creation.Id))
+				creation, err = d.podman.ContainerCreate(ctx, ConvertContainerConfig(pod, &conSpec, creation.Id))
 				if err != nil {
 					log.Println("Pods: container create err", err)
 					return err
@@ -225,27 +259,26 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 				return err
 			}
 		}
+
+		// TODO: figure out what kinda stuff this would be
+		for _, warning := range creation.Warnings {
+			d.events.Eventf(podRef, corev1.EventTypeWarning, "CreationWarning", "Container %s: %s", conSpec.Name, warning)
+		}
+
 		// log.Printf("Pods: container create %+v", conCreation)
 		d.events.Eventf(podRef, corev1.EventTypeNormal, "Created", "Created container %s", conSpec.Name)
+		containerIDs[conSpec.Name] = creation.Id
 	}
 
-	now := metav1.NewTime(time.Now())
-	pod.Status = corev1.PodStatus{
-		Phase: corev1.PodPending,
-		Conditions: []corev1.PodCondition{
-			{
-				Type:   corev1.PodInitialized,
-				Status: corev1.ConditionTrue,
-			},
-			{
-				Type:   corev1.PodReady,
-				Status: corev1.ConditionFalse,
-			},
-			{
-				Type:   corev1.PodScheduled,
-				Status: corev1.ConditionTrue,
-			},
-		},
+	// This is used elsewhere for stats, etc
+	d.manager.SetContainerIDs(podCoord, containerIDs)
+
+	for idx := range pod.Status.Conditions {
+		cond := &pod.Status.Conditions[idx]
+		if cond.Type == corev1.PodInitialized {
+			cond.Status = corev1.ConditionTrue
+			cond.LastTransitionTime = metav1.NewTime(time.Now())
+		}
 	}
 
 	for _, container := range pod.Spec.Containers {
@@ -254,6 +287,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 			Image:        container.Image,
 			Ready:        false,
 			RestartCount: 0,
+			ContainerID:  "podman://" + containerIDs[container.Name],
 			State: corev1.ContainerState{
 				Waiting: &corev1.ContainerStateWaiting{
 					Reason:  "Initializing",
@@ -266,6 +300,7 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 	d.podNotifier(pod)
 	d.manager.RegisterPod(pod)
 
+	startedTime := metav1.NewTime(time.Now())
 	_, err = d.podman.PodStart(ctx, creation.Id)
 	if err != nil {
 		log.Println("Pods: pod start err", err)
@@ -274,51 +309,38 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 	// log.Printf("Pods: pod started %+v", msg)
 
 	pod.Status.Phase = corev1.PodRunning
-	pod.Status.StartTime = &now
-
 	d.podNotifier(pod)
 	d.manager.RegisterPod(pod)
 
-	insp, err := d.podman.PodInspect(ctx, creation.Id)
-	if err != nil {
-		log.Println("Pods: pod insp err", err)
-		return err
-	}
-	// log.Printf("pod insp %+v", insp)
-
-	infraInsp, err := d.podman.ContainerInspect(ctx, insp.InfraContainerID, false)
-	if err != nil {
-		log.Println("Pods: infra insp err", err)
-		return err
-	}
-	// log.Printf("infra insp %+v", infraInsp)
-
-	if !pod.Spec.HostNetwork {
-		if infraNetwork, ok := infraInsp.NetworkSettings.Networks[d.cniNet]; ok {
-			pod.Status.PodIP = infraNetwork.InspectBasicNetworkConfig.IPAddress
-		}
-	}
-	// pod.Status.HostIP =    "1.2.3.4" // TODO
-
 	containerInspects := make(map[string]*podman.InspectContainerData)
-	for _, conIds := range insp.Containers {
-		if conIds.ID == insp.InfraContainerID {
-			continue
-		}
-
-		conInsp, err := d.podman.ContainerInspect(ctx, conIds.ID, false)
+	for conName, conID := range containerIDs {
+		conInsp, err := d.podman.ContainerInspect(ctx, conID, false)
 		if err != nil {
-			log.Println("Pods: con insp err", err)
+			log.Println("Pods WARN: container insp err", err)
 			continue
 		}
 		// log.Printf("con insp %+v", conInsp)
-		containerInspects[conInsp.Config.Labels["k8s-name"]] = conInsp
+		containerInspects[conName] = conInsp
+
+		if conName == "_infra" {
+			// Infra container; probably fill in pod networking info
+			if !pod.Spec.HostNetwork {
+				if infraNetwork, ok := conInsp.NetworkSettings.Networks[d.cniNet]; ok {
+					pod.Status.PodIP = infraNetwork.InspectBasicNetworkConfig.IPAddress
+					pod.Status.PodIPs = []corev1.PodIP{{IP: pod.Status.PodIP}}
+				}
+			}
+		}
 	}
+
+	// TODO: wait for probes before saying Ready
+	// TODO: really need like a whole per-pod lifecycle goroutine or something.
 
 	for idx := range pod.Status.Conditions {
 		cond := &pod.Status.Conditions[idx]
 		if cond.Type == corev1.PodReady {
 			cond.Status = corev1.ConditionTrue
+			cond.LastTransitionTime = metav1.NewTime(time.Now())
 		}
 	}
 	for idx := range pod.Status.ContainerStatuses {
@@ -326,11 +348,11 @@ func (d *PodmanProvider) CreatePod(ctx context.Context, pod *corev1.Pod) error {
 		if insp, ok := containerInspects[cs.Name]; ok {
 			cs.Ready = true
 			cs.RestartCount = insp.RestartCount
-			cs.ContainerID = "podman://" + insp.ID
-			cs.ImageID = strings.Split(insp.ImageName, ":")[0] + "@shasum:" + insp.Image
+			cs.ImageID = strings.Split(insp.ImageName, ":")[0] + "@shasum:" + insp.Image // TODO: try using registry's sha256
+			// TODO!!! insp.State
 			cs.State = corev1.ContainerState{
 				Running: &corev1.ContainerStateRunning{ // TODO: check!
-					StartedAt: now,
+					StartedAt: startedTime,
 				},
 			}
 			d.events.Eventf(podRef, corev1.EventTypeNormal, "Started", "Started container %s", cs.Name)
