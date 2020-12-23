@@ -2,7 +2,6 @@ package kubeapi
 
 import (
 	"context"
-	"runtime"
 	"time"
 
 	statsv1 "k8s.io/kubernetes/pkg/kubelet/apis/stats/v1alpha1"
@@ -12,18 +11,15 @@ import (
 
 func (ka *KubeApi) GetStatsSummary(ctx context.Context) (*statsv1.Summary, error) {
 
-	numCpus := uint64(runtime.NumCPU())
-	nowStamp := metav1.NewTime(time.Now()) // TODO: probably use the SystemNanos number from the stats instead
-	var zero uint64
-
-	// generally, the total number of containers we are running will be quite stable
-	newStats := make(map[string]prevStat, len(ka.prevStats))
-
 	// the actual API call part
+	nowStamp := metav1.NewTime(time.Now())
 	podReports, err := ka.podManager.GetAllStats(ctx)
 	if err != nil {
 		return nil, err
 	}
+
+	// generally, the total number of containers we are running will be quite stable
+	newStats := make(map[string]prevStat, len(ka.prevStats))
 
 	podStats := make([]statsv1.PodStats, 0, len(podReports))
 	for podMeta, reports := range podReports {
@@ -46,11 +42,11 @@ func (ka *KubeApi) GetStatsSummary(ctx context.Context) (*statsv1.Summary, error
 			memUsed := report.MemUsage
 			memAvail := (report.MemLimit - report.MemUsage)
 
-			cpuFrac := 0.0 // TODO: better metrics for the first report maybe?
+			cpuFrac := 0.0
 			if hasPrevStat {
 				cpuFrac = calculateCPUFraction(report.CPUNano, prevStat.cpu, report.SystemNano, prevStat.time)
 			}
-			cpuNano := uint64(cpuFrac*1000*1000*1000) * numCpus
+			cpuNano := uint64(cpuFrac * 1000 * 1000 * 1000)
 			cpuCumulative := report.CPUNano
 
 			totalNanoCores += cpuNano
@@ -142,8 +138,8 @@ func (ka *KubeApi) GetStatsSummary(ctx context.Context) (*statsv1.Summary, error
 				UsageCoreNanoSeconds: &totalCPUTime,
 			},
 			Memory: &statsv1.MemoryStats{
-				Time:            nowStamp,
-				AvailableBytes:  &zero,
+				Time: nowStamp,
+				// AvailableBytes:  &zero,
 				UsageBytes:      &totalMem,
 				WorkingSetBytes: &totalMem,
 				// RSSBytes:        &totalMem,
