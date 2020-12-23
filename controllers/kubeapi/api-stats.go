@@ -41,6 +41,7 @@ func (ka *KubeApi) GetStatsSummary(ctx context.Context) (*statsv1.Summary, error
 
 		conStats := make([]statsv1.ContainerStats, 0, len(reports)-1)
 		for conName, report := range reports {
+			reportTime := metav1.NewTime(time.Unix(0, int64(report.SystemNano)))
 
 			newStats[report.ContainerID] = prevStat{
 				time: report.SystemNano, cpu: report.CPUNano,
@@ -63,7 +64,7 @@ func (ka *KubeApi) GetStatsSummary(ctx context.Context) (*statsv1.Summary, error
 			// Maybe use network stats from infra
 			if conName == "infra" && (report.NetInput > 0 || report.NetOutput > 0) {
 				netStats = &statsv1.NetworkStats{
-					Time: nowStamp,
+					Time: reportTime,
 					InterfaceStats: statsv1.InterfaceStats{
 						Name:    "default",
 						RxBytes: &report.NetInput,
@@ -77,27 +78,27 @@ func (ka *KubeApi) GetStatsSummary(ctx context.Context) (*statsv1.Summary, error
 				conStats = append(conStats, statsv1.ContainerStats{
 					Name: conName,
 
-					StartTime: nowStamp,
+					StartTime: reportTime,
 					CPU: &statsv1.CPUStats{
-						Time:                 nowStamp,
+						Time:                 reportTime,
 						UsageNanoCores:       &cpuNano,
 						UsageCoreNanoSeconds: &report.CPUNano,
 					},
 					Memory: &statsv1.MemoryStats{
-						Time:           nowStamp,
+						Time:           reportTime,
 						AvailableBytes: &memAvail,
 						UsageBytes:     &memUsed,
 						// WorkingSetBytes: &memUsed,
 						// RSSBytes:        &memUsed,
 					},
 					Rootfs: &statsv1.FsStats{
-						Time:           nowStamp,
+						Time:           reportTime,
 						AvailableBytes: &zero,
 						CapacityBytes:  &zero,
 						UsedBytes:      &zero,
 					},
 					Logs: &statsv1.FsStats{
-						Time:           nowStamp,
+						Time:           reportTime,
 						AvailableBytes: &zero,
 						CapacityBytes:  &zero,
 						UsedBytes:      &zero,
