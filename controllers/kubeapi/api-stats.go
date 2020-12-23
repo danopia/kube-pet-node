@@ -2,7 +2,6 @@ package kubeapi
 
 import (
 	"context"
-	"log"
 	"runtime"
 	"time"
 
@@ -26,11 +25,6 @@ func (ka *KubeApi) GetStatsSummary(ctx context.Context) (*statsv1.Summary, error
 		return nil, err
 	}
 
-	// Round memory stuff so it's in kilobytes
-	// I'm doing this to match what real containers seem to look like
-	// Can probably undo this if metrics-server-exporter is decommissioned or fixed
-	var kbMask uint64 = ^uint64(1023)
-
 	podStats := make([]statsv1.PodStats, 0, len(podReports))
 	for podMeta, reports := range podReports {
 
@@ -49,33 +43,33 @@ func (ka *KubeApi) GetStatsSummary(ctx context.Context) (*statsv1.Summary, error
 			}
 			prevStat, hasPrevStat := ka.prevStats[report.ContainerID]
 
-			memUsed := report.MemUsage & kbMask
-			memAvail := (report.MemLimit - report.MemUsage) & kbMask
+			memUsed := report.MemUsage
+			memAvail := (report.MemLimit - report.MemUsage)
 
-			cpuFrac := 0.0
+			cpuFrac := 0.0 // TODO: better metrics for the first report maybe?
 			if hasPrevStat {
 				cpuFrac = calculateCPUFraction(report.CPUNano, prevStat.cpu, report.SystemNano, prevStat.time)
-			} else {
-				log.Println("kubeapi WARN: Lacked previous stats for", report.ContainerID)
 			}
-			cpuNano := uint64(cpuFrac*1000*1000*1000) * numCpus // TODO: this is likely still wrong
+			cpuNano := uint64(cpuFrac*1000*1000*1000) * numCpus
 			cpuCumulative := report.CPUNano
 
 			totalNanoCores += cpuNano
 			totalCPUTime += report.CPUNano
 			totalMem += memUsed
 
-			// Maybe use network stats from infra
+			// Grab any network stats from infra
 			if conName == "_infra" && (report.NetInput > 0 || report.NetOutput > 0) {
 				netInput := report.NetInput
 				netOutput := report.NetOutput
+				ifaceStats := statsv1.InterfaceStats{
+					Name:    "default",
+					RxBytes: &netInput,
+					TxBytes: &netOutput,
+				}
 				netStats = &statsv1.NetworkStats{
-					Time: reportTime,
-					InterfaceStats: statsv1.InterfaceStats{
-						Name:    "default",
-						RxBytes: &netInput,
-						TxBytes: &netOutput,
-					},
+					Time:           reportTime,
+					InterfaceStats: ifaceStats,
+					Interfaces:     []statsv1.InterfaceStats{ifaceStats},
 				}
 			}
 
@@ -97,18 +91,39 @@ func (ka *KubeApi) GetStatsSummary(ctx context.Context) (*statsv1.Summary, error
 						WorkingSetBytes: &memUsed,
 						// RSSBytes:        &memUsed,
 					},
-					Rootfs: &statsv1.FsStats{
-						Time:           reportTime,
-						AvailableBytes: &zero,
-						CapacityBytes:  &zero,
-						UsedBytes:      &zero,
-					},
-					Logs: &statsv1.FsStats{
-						Time:           reportTime,
-						AvailableBytes: &zero,
-						CapacityBytes:  &zero,
-						UsedBytes:      &zero,
-					},
+					UserDefinedMetrics: []statsv1.UserDefinedMetric{{
+						Time: reportTime,
+						UserDefinedMetricDescriptor: statsv1.UserDefinedMetricDescriptor{
+							Name:  "podman.pids",
+							Type:  statsv1.MetricGauge,
+							Units: "count",
+						},
+						Value: float64(report.PIDs),
+					}, {
+						Time: reportTime,
+						UserDefinedMetricDescriptor: statsv1.UserDefinedMetricDescriptor{
+							Name:  "podman.cpu_system",
+							Type:  statsv1.MetricCumulative,
+							Units: "nanoseconds",
+						},
+						Value: float64(report.CPUSystemNano),
+					}, {
+						Time: reportTime,
+						UserDefinedMetricDescriptor: statsv1.UserDefinedMetricDescriptor{
+							Name:  "podman.block_input",
+							Type:  statsv1.MetricCumulative,
+							Units: "bytes",
+						},
+						Value: float64(report.BlockInput),
+					}, {
+						Time: reportTime,
+						UserDefinedMetricDescriptor: statsv1.UserDefinedMetricDescriptor{
+							Name:  "podman.block_output",
+							Type:  statsv1.MetricCumulative,
+							Units: "bytes",
+						},
+						Value: float64(report.BlockOutput),
+					}},
 				})
 			}
 		}
