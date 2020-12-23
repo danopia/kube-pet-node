@@ -2,6 +2,7 @@ package kubeapi
 
 import (
 	"context"
+	"log"
 	"runtime"
 	"time"
 
@@ -54,21 +55,26 @@ func (ka *KubeApi) GetStatsSummary(ctx context.Context) (*statsv1.Summary, error
 			cpuFrac := 0.0
 			if hasPrevStat {
 				cpuFrac = calculateCPUFraction(report.CPUNano, prevStat.cpu, report.SystemNano, prevStat.time)
+			} else {
+				log.Println("kubeapi WARN: Lacked previous stats for", report.ContainerID)
 			}
 			cpuNano := uint64(cpuFrac*1000*1000*1000) * numCpus // TODO: this is likely still wrong
+			cpuCumulative := report.CPUNano
 
 			totalNanoCores += cpuNano
 			totalCPUTime += report.CPUNano
 			totalMem += memUsed
 
 			// Maybe use network stats from infra
-			if conName == "infra" && (report.NetInput > 0 || report.NetOutput > 0) {
+			if conName == "_infra" && (report.NetInput > 0 || report.NetOutput > 0) {
+				netInput := report.NetInput
+				netOutput := report.NetOutput
 				netStats = &statsv1.NetworkStats{
 					Time: reportTime,
 					InterfaceStats: statsv1.InterfaceStats{
 						Name:    "default",
-						RxBytes: &report.NetInput,
-						TxBytes: &report.NetOutput,
+						RxBytes: &netInput,
+						TxBytes: &netOutput,
 					},
 				}
 			}
@@ -82,7 +88,7 @@ func (ka *KubeApi) GetStatsSummary(ctx context.Context) (*statsv1.Summary, error
 					CPU: &statsv1.CPUStats{
 						Time:                 reportTime,
 						UsageNanoCores:       &cpuNano,
-						UsageCoreNanoSeconds: &report.CPUNano,
+						UsageCoreNanoSeconds: &cpuCumulative,
 					},
 					Memory: &statsv1.MemoryStats{
 						Time:            reportTime,
@@ -139,6 +145,8 @@ func (ka *KubeApi) GetStatsSummary(ctx context.Context) (*statsv1.Summary, error
 			// },
 		})
 	}
+
+	ka.prevStats = newStats
 
 	var filler uint64 = 0 // TODO: alll the node stats
 	// https://godoc.org/k8s.io/kubernetes/pkg/kubelet/apis/stats/v1alpha1#Summary

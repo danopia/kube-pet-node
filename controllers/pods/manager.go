@@ -193,8 +193,8 @@ func (pm *PodManager) GetAllStats(ctx context.Context) (map[*metav1.ObjectMeta]m
 
 	// index the reports by container ID
 	containerStats := make(map[string]*podman.ContainerStats)
-	for _, containerReport := range report.Stats {
-		containerStats[containerReport.ContainerID] = &containerReport
+	for idx, containerReport := range report.Stats {
+		containerStats[containerReport.ContainerID] = &report.Stats[idx]
 	}
 
 	// associate reports with k8s pod metadata
@@ -205,7 +205,7 @@ func (pm *PodManager) GetAllStats(ctx context.Context) (map[*metav1.ObjectMeta]m
 			if conReport, ok := containerStats[conID]; ok {
 				containerMap[conName] = conReport
 			} else {
-				log.Println("Pods WARN: lacking stats for pod", pod.Coord)
+				log.Println("Pods WARN: lacking stats for pod", pod.Coord, "con", conName, "ID", conID)
 			}
 		}
 		podMap[&pod.Kube.ObjectMeta] = containerMap
