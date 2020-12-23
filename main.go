@@ -131,18 +131,25 @@ func main() {
 		panic(err)
 	}
 
-	select {
-	case <-petNode.PodRunner.Ready():
-		log.Println("Ready...")
-		<-petNode.PodRunner.Done()
-		log.Println("Done!")
-	case <-petNode.PodRunner.Done():
-		log.Println("Done...")
+	if petNode.PodRunner != nil {
+		select {
+		case <-petNode.PodRunner.Ready():
+			log.Println("Ready...")
+			<-petNode.PodRunner.Done()
+			log.Println("Done!")
+		case <-petNode.PodRunner.Done():
+			log.Println("Done...")
+		}
+		if petNode.PodRunner.Err() != nil {
+			log.Println(petNode.PodRunner.Err())
+			// handle error
+		}
+
+	} else {
+		log.Println("WARN: I'm started up here but there's nothing going on.")
+		<-ctx.Done()
 	}
-	if petNode.PodRunner.Err() != nil {
-		log.Println(petNode.PodRunner.Err())
-		// handle error
-	}
+
 	log.Println("exit")
 }
 
