@@ -246,6 +246,38 @@ func (pc *PodmanClient) ContainerLogs(ctx context.Context, nameOrId string, opti
 // ContainerStart(ctx context.Context, namesOrIds []string, options ContainerStartOptions) ([]*ContainerStartReport, error)
 
 // ContainerStats(ctx context.Context, namesOrIds []string, options ContainerStatsOptions) error
+// TODO: support namesOrIds and stream=true
+func (pc *PodmanClient) ContainerStats(ctx context.Context) (*ContainerStatsReport, error) {
+	var out ContainerStatsReport
+	return &out, pc.performGet(ctx, "/libpod/containers/stats?stream=false", &out)
+}
+
+// ContainerStatsReport is used for streaming container stats.
+type ContainerStatsReport struct {
+	// Error from reading stats.
+	Error string
+	// Results, set when there is no error.
+	Stats []ContainerStats
+}
+
+// ContainerStats contains the statistics information for a running container
+type ContainerStats struct {
+	ContainerID   string
+	Name          string
+	PerCPU        []uint64
+	CPU           float64
+	CPUNano       uint64
+	CPUSystemNano uint64
+	SystemNano    uint64
+	MemUsage      uint64
+	MemLimit      uint64
+	MemPerc       float64
+	NetInput      uint64
+	NetOutput     uint64
+	BlockInput    uint64
+	BlockOutput   uint64
+	PIDs          uint64
+}
 
 // ContainerStop(ctx context.Context, namesOrIds []string, options StopOptions) ([]*StopReport, error)
 

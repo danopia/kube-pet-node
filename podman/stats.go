@@ -8,7 +8,7 @@ import (
 )
 
 type PodStatsReport struct {
-	CPU      string // 9.45%
+	CPU      string // 9.45% - FLAWED FIELD, is accumulative b/c prior data isn't taken into account
 	MemUsage string // 132.8MB / 33.55GB
 	Mem      string // 0.40%
 	NetIO    string // 61.81kB / 206.8kB
