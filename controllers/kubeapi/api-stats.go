@@ -38,9 +38,11 @@ func (ka *KubeApi) GetStatsSummary(ctx context.Context) (*statsv1.Summary, error
 				conName = nameParts[2]
 			}
 
-			memUsed, memAvail, _ := report.ReadMemUsage()
+			memUsed, memTotal, _ := report.ReadMemUsage()
+			memAvail := memTotal - memUsed
+			memUsed += 1024 // force Ki representation
 			cpuPerc, _ := report.ReadCpuPercent()
-			cpuNano := uint64(cpuPerc*1000) * numCpus
+			cpuNano := uint64(cpuPerc*10*1000*1000)*numCpus + 1 // force nanocore representation
 
 			totalCpu += cpuNano
 			totalMem += memUsed
