@@ -48,15 +48,15 @@ func createServerAuthCsrParams(nodeName, nodeIP string) *ini.File {
 	req, _ := file.NewSection("req")
 	req.NewKey("days", "30")
 	req.NewKey("prompt", "no")
-	req.NewKey("req_extensions", "v3_req")
-	req.NewKey("distinguished_name", "dn")
+	req.NewKey("req_extensions", "v3_req") // section reference
+	req.NewKey("distinguished_name", "dn") // section reference
 
 	dn, _ := file.NewSection("dn")
 	dn.NewKey("O", "system:nodes")
 	dn.NewKey("CN", "system:node:"+nodeName)
 
 	v3_req, _ := file.NewSection("v3_req")
-	v3_req.NewKey("subjectAltName", "@alt_names")
+	v3_req.NewKey("subjectAltName", "@alt_names") // section reference
 	v3_req.NewKey("basicConstraints", "CA:FALSE")
 	v3_req.NewKey("extendedKeyUsage", "serverAuth")
 	v3_req.NewKey("keyUsage", "nonRepudiation, digitalSignature, keyEncipherment")

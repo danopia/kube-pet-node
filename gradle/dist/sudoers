@@ -18,7 +18,7 @@ kube-pet ALL=NOPASSWD: /bin/tar -xf - *
 #kube-pet ALL=NOPASSWD: /usr/sbin/smartctl -a -- *
 
 # ContainerNetwork
-#kube-pet ALL=NOPASSWD: /usr/bin/tee /etc/cni/net.d/*.conflist, /bin/rm /etc/cni/net.d/*.conflist
+kube-pet ALL=NOPASSWD: /usr/bin/tee /etc/cni/net.d/*.conflist
 
 # run our node upgrade script
 kube-pet ALL=NOPASSWD: /opt/kube-pet-node/bin/node-upgrade.sh *

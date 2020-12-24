@@ -17,7 +17,7 @@ case "$1" in
         fi
         if [ -d /etc/wireguard ]; then
                 chown -R :kube-pet /etc/wireguard
-                chmod -R g+rw /etc/wireguard
+                chmod -R g+rwx /etc/wireguard
         fi
 
         # give service a private read/write space
@@ -29,12 +29,6 @@ case "$1" in
 
         # allow managing the network without sudo
         setcap cap_net_admin+ep "$(readlink /usr/bin/kube-pet-node)"
-
-        # if [ ! -d /opt/kube-pet-node/unit-files ]; then
-        #         mkdir /opt/kube-pet-node/unit-files
-        #         chown -R :kube-pet /opt/kube-pet-node/unit-files
-        #         chmod -R g+rw /opt/kube-pet-node/unit-files
-        # fi
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)

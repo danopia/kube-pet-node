@@ -5,7 +5,7 @@ if [ $1 -eq 1 ] && [ -x /usr/bin/systemctl ] ; then
   # allow directly managing wireguard configs
   if [ -d /etc/wireguard ]; then
     chown -R :kube-pet /etc/wireguard
-    chmod -R g+rw /etc/wireguard
+    chmod -R g+rwx /etc/wireguard
   fi
 
   # give service a private read/write space
