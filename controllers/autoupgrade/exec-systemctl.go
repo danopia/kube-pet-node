@@ -18,10 +18,11 @@ func IsUnitRunning(unitName string) (isRunning bool, err error) {
 		log.Printf("AutoUpgrade: Unit %s LoadState was %s instead of %s", unitName, states["Load"], "loaded")
 		return false, nil
 	}
-	if states["UnitFile"] != "enabled" {
-		log.Printf("AutoUpgrade: Unit %s UnitFileState was %s instead of %s", unitName, states["UnitFile"], "enabled")
-		return false, nil
-	}
+	// It's valid to run the service without it being enabled
+	// if states["UnitFile"] != "enabled" {
+	// 	log.Printf("AutoUpgrade: Unit %s UnitFileState was %s instead of %s", unitName, states["UnitFile"], "enabled")
+	// 	return false, nil
+	// }
 	if states["Sub"] != "running" {
 		log.Printf("AutoUpgrade: Unit %s SubState was %s instead of %s", unitName, states["Sub"], "running")
 		return false, nil
