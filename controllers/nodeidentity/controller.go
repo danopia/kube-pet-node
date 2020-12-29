@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
 	// "k8s.io/client-go/tools/record"
 
 	"github.com/danopia/kube-pet-node/podman"
@@ -44,9 +45,9 @@ func NewNodeIdentity(kubernetes *kubernetes.Clientset, nodeName string, petVersi
 		Spec: corev1.NodeSpec{
 			PodCIDRs: podCIDRs,
 			// If ProviderID isn't a gce:// URI, the GKE autoscaler breaks in half as long as we're Ready
-			ProviderID: "gce://kube-pet-node/bare-metal/" + nodeName,
+			ProviderID: "gce://kube-pet-node/kube-pet-node/" + nodeName,
 			Taints: []corev1.Taint{{
-				Key:    "kubernetes.io/pet-node",
+				Key:    "kubernetes.io/pet-node", // TODO: is nonstandard
 				Value:  nodeName,
 				Effect: "NoSchedule",
 			}},
