@@ -7,18 +7,14 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
-	// "hash"
-	// "hash/fnv"
-	// "net"
-	// "strings"
-	// "time"
-
+	"github.com/danopia/kube-pet-node/pkg/fsinject"
 	"github.com/danopia/kube-pet-node/pkg/wireguard"
 )
 
@@ -57,7 +53,7 @@ func (ctl *Controller) Perform(ctx context.Context) error {
 				return err
 			}
 
-			log.Println("Received cluster networking configuration:", clusterCfg)
+			log.Println("SelfProvision: Received cluster networking configuration")
 
 		} else {
 			return fmt.Errorf("No 'Networking' key found on %v", val)
@@ -77,7 +73,51 @@ func (ctl *Controller) Perform(ctx context.Context) error {
 		}
 
 		// Step 6. Write out CNI file
-		// sudo /usr/bin/tee /etc/cni/net.d/*.conflist
+		if ipamJSON, ok := configMap.Data["IpamJson"]; ok {
+
+			var ipamCfg map[string]interface{}
+			err = json.Unmarshal([]byte(ipamJSON), &ipamCfg)
+			if err != nil {
+				return err
+			}
+
+			cniBytes, err := json.MarshalIndent(map[string]interface{}{
+				"cniVersion": "0.4.0",
+				"name":       ctl.cniNet,
+				"plugins": []map[string]interface{}{
+					{
+						"type": "ptp",
+						"mtu":  clusterCfg.CniMtu,
+						"ipam": ipamCfg,
+					},
+					{
+						"type": "portmap",
+						"capabilities": map[string]interface{}{
+							"portMappings": true,
+						},
+						"noSnat": true,
+					},
+					{
+						"type": "firewall",
+					},
+				}}, "", "  ")
+			if err != nil {
+				return err
+			}
+
+			cniTar, err := fsinject.StartArchiveExtraction(ctx, "/etc/cni/net.d")
+			if err != nil {
+				return err
+			}
+
+			confListName := fmt.Sprintf("%v-%s.conflist", clusterCfg.CniNumber, ctl.cniNet)
+			cniTar.WriteFile(confListName, 0644, cniBytes)
+
+			if err := cniTar.Finish(); err != nil {
+				return err
+			}
+			log.Println("SelfProvision: Wrote CNI conflist to", confListName)
+		}
 
 		// Step 7. Write new Wireguard configuration to /etc/wireguard
 		if wgTempl, ok := configMap.Data["WireguardConfig"]; ok {
@@ -98,16 +138,21 @@ func (ctl *Controller) Perform(ctx context.Context) error {
 				return err
 			}
 
-			log.Println("Wrote new WireGuard configuration to disk")
+			log.Println("SelfProvision: Wrote new WireGuard configuration to disk")
+
+			// Step 8. Wait, idk, 2 seconds? for router to update
+			time.Sleep(2 * time.Second)
+
+			// Step 9. Enable/Bring up WireGuard bridge with systemctl
+			unitName := "wg-quick@" + ctl.vpnIface + ".service"
+			if err := SystemctlUnitAction(ctx, unitName, "enable"); err != nil {
+				return err
+			}
+			if err := SystemctlUnitAction(ctx, unitName, "start"); err != nil {
+				return err
+			}
+			log.Println("SelfProvision: Start wg-quick unit")
 		}
-
-		// Step 8. Update cluster state with our keypair information
-		// Step 8b. Central router reconfigures to add us as a peer
-		// Step 8c. Wait, idk, 5 seconds? for router to update
-
-		// Step 9. Enable/Bring up WireGuard bridge with systemctl
-		// sudo /bin/systemctl enable wg-quick@*
-		// sudo /bin/systemctl start wg-quick@*
 
 		// Step 10. Confirm that iface is seen with correct IP (not a lot to do if the IP is wrong though)
 		// sudo /usr/bin/wg *
@@ -116,7 +161,6 @@ func (ctl *Controller) Perform(ctx context.Context) error {
 
 		doneFunc()
 
-		log.Println("Node config:", configMap)
 		return nil
 	}
 
@@ -140,7 +184,7 @@ func (ctl *Controller) Perform(ctx context.Context) error {
 				if err != nil {
 					return err
 				}
-				log.Println("Our Wireguard public key is", pubKey)
+				log.Println("SelfProvision: Our Wireguard public key is", pubKey)
 				wgPubKey = pubKey
 			}
 
@@ -207,6 +251,7 @@ func (ctl *Controller) Perform(ctx context.Context) error {
 
 	log.Println("SelfProvision: Waiting for completion...")
 	<-doneCtx.Done()
+	log.Println("SelfProvision: Process completed.")
 
 	return nil
 }
