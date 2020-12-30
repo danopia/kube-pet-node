@@ -12,6 +12,7 @@ import (
 
 	"github.com/danopia/kube-pet-node/controller"
 	"github.com/danopia/kube-pet-node/controllers/pods"
+	"github.com/danopia/kube-pet-node/controllers/selfprovision"
 	"github.com/danopia/kube-pet-node/podman"
 
 	"k8s.io/client-go/kubernetes"
@@ -146,8 +147,12 @@ func main() {
 		}
 
 	} else {
-		log.Println("WARN: I'm started up here but there's nothing going on.")
-		<-ctx.Done()
+
+		selfProvisioner := selfprovision.NewController(nodeName, *vpnIfaceFlag, *cniNetFlag, clientset, podman)
+		if err := selfProvisioner.Perform(ctx); err != nil {
+			panic(err)
+		}
+
 	}
 
 	log.Println("exit")
