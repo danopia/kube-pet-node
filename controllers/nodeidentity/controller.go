@@ -9,6 +9,7 @@ import (
 
 	"github.com/virtual-kubelet/virtual-kubelet/node"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -17,7 +18,7 @@ import (
 	"github.com/danopia/kube-pet-node/podman"
 )
 
-func NewNodeIdentity(kubernetes *kubernetes.Clientset, nodeName string, petVersion string, conVersion *podman.DockerVersionReport, maxPods int, nodeIP net.IP, podNets []net.IPNet) (*node.NodeController, error) {
+func NewNodeIdentity(ctx context.Context, kubernetes *kubernetes.Clientset, nodeName string, petVersion string, conVersion *podman.DockerVersionReport, maxPods int, nodeIP net.IP, podNets []net.IPNet) (*node.NodeController, error) {
 
 	podCIDRs := make([]string, len(podNets))
 	for idx, podNet := range podNets {
@@ -26,21 +27,9 @@ func NewNodeIdentity(kubernetes *kubernetes.Clientset, nodeName string, petVersi
 
 	pNode := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: nodeName,
-			Labels: map[string]string{
-				"purpose":  "pet",
-				"type":     "virtual-kubelet",
-				"lifetime": "persistent",
-
-				"kubernetes.io/role":     "pet",
-				"kubernetes.io/hostname": strings.TrimPrefix(nodeName, "pet-"),
-				"kubernetes.io/arch":     runtime.GOARCH,
-				"kubernetes.io/os":       runtime.GOOS,
-			},
-			Annotations: map[string]string{
-				// i made this one up to deal with external-dns
-				"kubernetes.io/node.class": "kube-pet",
-			},
+			Name:        nodeName,
+			Labels:      map[string]string{},
+			Annotations: map[string]string{},
 		},
 		Spec: corev1.NodeSpec{
 			PodCIDRs: podCIDRs,
@@ -53,6 +42,26 @@ func NewNodeIdentity(kubernetes *kubernetes.Clientset, nodeName string, petVersi
 			}},
 		},
 	}
+
+	// If our node already exists, use it for inspiration
+	existingNode, err := kubernetes.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	if err == nil {
+		existingNode.ObjectMeta.DeepCopyInto(&pNode.ObjectMeta)
+	} else if !errors.IsNotFound(err) {
+		return nil, err
+	}
+
+	pNode.ObjectMeta.Labels["purpose"] = "pet"
+	pNode.ObjectMeta.Labels["type"] = "virtual-kubelet"
+	pNode.ObjectMeta.Labels["lifetime"] = "persistent"
+
+	pNode.ObjectMeta.Labels["kubernetes.io/role"] = "pet"
+	pNode.ObjectMeta.Labels["kubernetes.io/hostname"] = strings.TrimPrefix(nodeName, "pet-")
+	pNode.ObjectMeta.Labels["kubernetes.io/arch"] = runtime.GOARCH
+	pNode.ObjectMeta.Labels["kubernetes.io/os"] = runtime.GOOS
+
+	// i made this one up to deal with external-dns
+	pNode.ObjectMeta.Annotations["kubernetes.io/node.class"] = "kube-pet"
 
 	if len(podCIDRs) > 0 {
 		pNode.Spec.PodCIDR = podCIDRs[0]

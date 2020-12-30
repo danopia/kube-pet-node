@@ -75,7 +75,7 @@ func NewPetNode(ctx context.Context, nodeName string, podManager *pods.PodManage
 		return nil, err
 	}
 
-	nodeRunner, err := nodeidentity.NewNodeIdentity(kubernetes, nodeName, petVersion, conVersion, maxPods, nodeIP, podNets)
+	nodeRunner, err := nodeidentity.NewNodeIdentity(ctx, kubernetes, nodeName, petVersion, conVersion, maxPods, nodeIP, podNets)
 	if err != nil {
 		return nil, err
 	}
