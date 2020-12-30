@@ -23,6 +23,9 @@ func (ka *KubeApi) GetStatsSummary(ctx context.Context) (*statsv1.Summary, error
 
 	podStats := make([]statsv1.PodStats, 0, len(podReports))
 	for podMeta, reports := range podReports {
+		if len(reports) < 1 {
+			continue
+		}
 
 		var totalNanoCores uint64
 		var totalCPUTime uint64
