@@ -25,11 +25,11 @@ func (wg *WgInterface) ReadPersistentConfig() (*WgQuickConfig, error) {
 		return nil, err
 	}
 
-	return parseWgQuickConfig(string(raw))
+	return ParseWgQuickConfig(string(raw))
 }
 
 func (wg *WgInterface) WritePersistentConfig(config *WgQuickConfig) error {
-	configRaw := []byte(config.stringify())
+	configRaw := []byte(config.Stringify())
 
 	return ioutil.WriteFile("/etc/wireguard/"+wg.name+".conf", configRaw, 0660)
 	// return ioutil.WriteFile("/tmp/"+wg.name+".conf", configRaw, 0660)
@@ -52,7 +52,7 @@ type PeerConfig struct {
 	AllowedIPs          []*net.IPNet
 }
 
-func (cfg *WgQuickConfig) stringify() string {
+func (cfg *WgQuickConfig) Stringify() string {
 	var b strings.Builder
 
 	b.WriteString("[Interface]")
@@ -103,7 +103,7 @@ func (cfg *WgQuickConfig) stringify() string {
 	return b.String()
 }
 
-func parseWgQuickConfig(data string) (*WgQuickConfig, error) {
+func ParseWgQuickConfig(data string) (*WgQuickConfig, error) {
 
 	file, err := ini.LoadSources(ini.LoadOptions{
 		AllowNonUniqueSections: true,

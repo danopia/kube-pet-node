@@ -39,7 +39,7 @@ func (ctl *Controller) Perform(ctx context.Context) error {
 	wgIface := wireguard.ByName(ctl.vpnIface)
 	wgPubKey := ""
 
-	var clusterCfg *ClusterConfig
+	var clusterCfg *ClusterNetworkingConfig
 
 	processClusterConfigMap := func(val string) error {
 		clusterConfigMapKey = val
@@ -51,16 +51,16 @@ func (ctl *Controller) Perform(ctx context.Context) error {
 			return err
 		}
 
-		if clusterData, ok := configMap.Data["Cluster"]; ok {
-			clusterCfg, err = ParseClusterCfg(clusterData)
+		if clusterData, ok := configMap.Data["Networking"]; ok {
+			clusterCfg, err = ParseClusterNetworkingCfg(clusterData)
 			if err != nil {
 				return err
 			}
 
-			log.Println("Received cluster pet configuration:", clusterCfg)
+			log.Println("Received cluster networking configuration:", clusterCfg)
 
 		} else {
-			return fmt.Errorf("No Cluster key found on %v", val)
+			return fmt.Errorf("No 'Networking' key found on %v", val)
 		}
 
 		return nil
@@ -80,7 +80,26 @@ func (ctl *Controller) Perform(ctx context.Context) error {
 		// sudo /usr/bin/tee /etc/cni/net.d/*.conflist
 
 		// Step 7. Write new Wireguard configuration to /etc/wireguard
-		// Step 7b. Generate new private key if none yet
+		if wgTempl, ok := configMap.Data["WireguardConfig"]; ok {
+			parsedTempl, err := wireguard.ParseWgQuickConfig(wgTempl)
+			if err != nil {
+				return err
+			}
+
+			liveConfig, err := wgIface.ReadPersistentConfig()
+			if err != nil {
+				return err
+			}
+
+			parsedTempl.PrivateKey = liveConfig.PrivateKey
+
+			err = wgIface.WritePersistentConfig(parsedTempl)
+			if err != nil {
+				return err
+			}
+
+			log.Println("Wrote new WireGuard configuration to disk")
+		}
 
 		// Step 8. Update cluster state with our keypair information
 		// Step 8b. Central router reconfigures to add us as a peer
@@ -95,9 +114,7 @@ func (ctl *Controller) Perform(ctx context.Context) error {
 
 		// Step 11. Exit without error, let the process get restarted normally.
 
-		if false {
-			doneFunc()
-		}
+		doneFunc()
 
 		log.Println("Node config:", configMap)
 		return nil
