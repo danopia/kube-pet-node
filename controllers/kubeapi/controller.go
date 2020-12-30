@@ -23,7 +23,8 @@ type KubeApi struct {
 	nodeName   string
 	nodeIP     net.IP
 
-	prevStats map[string]prevStat
+	prevStats    map[string]prevStat
+	prevNodeStat *prevStat
 
 	httpSrv  *http.Server
 	httpLnr  net.Listener

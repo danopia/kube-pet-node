@@ -29,6 +29,7 @@ replace (
 
 require (
 	github.com/bep/debounce v1.2.0
+	github.com/c9s/goprocinfo v0.0.0-20200311234719-5750cbd54a3b
 	github.com/coreos/go-semver v0.3.0
 	github.com/docker/go-units v0.4.0
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
@@ -45,6 +46,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sirupsen/logrus v1.5.0 // indirect
 	github.com/stretchr/testify v1.5.1 // indirect
+	github.com/tklauser/go-sysconf v0.0.0-20200824103752-188b5e10b55f
 	github.com/virtual-kubelet/virtual-kubelet v1.3.0
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
 	go.opencensus.io v0.22.0 // indirect

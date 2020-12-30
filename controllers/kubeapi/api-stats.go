@@ -2,11 +2,16 @@ package kubeapi
 
 import (
 	"context"
+	"log"
+	"strings"
 	"time"
 
 	statsv1 "k8s.io/kubernetes/pkg/kubelet/apis/stats/v1alpha1"
 	// utilexec "k8s.io/utils/exec"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	linuxproc "github.com/c9s/goprocinfo/linux"
+	sysconf "github.com/tklauser/go-sysconf"
 )
 
 func (ka *KubeApi) GetStatsSummary(ctx context.Context) (*statsv1.Summary, error) {
@@ -162,25 +167,99 @@ func (ka *KubeApi) GetStatsSummary(ctx context.Context) (*statsv1.Summary, error
 
 	ka.prevStats = newStats
 
-	var filler uint64 = 0 // TODO: alll the node stats
+	nodeStats := statsv1.NodeStats{
+		NodeName:  ka.nodeName,
+		StartTime: nowStamp,
+	}
+
+	if stat, err := linuxproc.ReadStat("/proc/stat"); err != nil {
+		log.Println("KubeAPI WARN: Failed to read /proc/stat:", err.Error())
+	} else {
+		clktck, err := sysconf.Sysconf(sysconf.SC_CLK_TCK)
+		if err != nil {
+			clktck = 100
+		}
+
+		var cpuTime uint64 = stat.CPUStatAll.User + stat.CPUStatAll.Nice + stat.CPUStatAll.System
+		cpuCumulative := cpuTime * 1000 * 1000 * 1000 / uint64(clktck)
+
+		nowNano := uint64(time.Now().UnixNano())
+
+		cpuFrac := 0.0
+		if ka.prevNodeStat != nil {
+			cpuFrac = calculateCPUFraction(cpuCumulative, ka.prevNodeStat.cpu, nowNano, ka.prevNodeStat.time)
+		}
+		cpuNano := uint64(cpuFrac * 1000 * 1000 * 1000)
+
+		ka.prevNodeStat = &prevStat{cpu: cpuCumulative, time: nowNano}
+
+		nodeStats.CPU = &statsv1.CPUStats{
+			Time:                 nowStamp,
+			UsageNanoCores:       &cpuNano,
+			UsageCoreNanoSeconds: &cpuCumulative,
+		}
+	}
+
+	// TODO: cache memory info for 60 seconds or so probably
+	if stat, err := linuxproc.ReadMemInfo("/proc/meminfo"); err != nil {
+		log.Println("KubeAPI WARN: Failed to read /proc/meminfo:", err.Error())
+	} else {
+		var availBytes uint64 = stat.MemAvailable * 1024
+		var usedBytes uint64 = (stat.MemTotal - stat.MemFree) * 1024
+		var workingBytes uint64 = (stat.MemTotal - stat.MemAvailable) * 1024
+		var rssBytes uint64 = (stat.AnonPages + stat.AnonHugePages + stat.SwapCached) * 1024
+		nodeStats.Memory = &statsv1.MemoryStats{
+			Time:            nowStamp,
+			AvailableBytes:  &availBytes,
+			UsageBytes:      &usedBytes,
+			WorkingSetBytes: &workingBytes,
+			RSSBytes:        &rssBytes,
+		}
+
+		if vmStat, err := linuxproc.ReadVMStat("/proc/vmstat"); err != nil {
+			log.Println("KubeAPI WARN: Failed to read /proc/vmstat:", err.Error())
+		} else {
+			nodeStats.Memory.PageFaults = &vmStat.PageFault
+			nodeStats.Memory.MajorPageFaults = &vmStat.PageMajorFault
+		}
+	}
+
+	if statList, err := linuxproc.ReadNetworkStat("/proc/net/dev"); err != nil {
+		log.Println("KubeAPI WARN: Failed to read /proc/net/dev:", err.Error())
+	} else {
+		netStats := make([]statsv1.InterfaceStats, 0, len(statList))
+		for _, stat := range statList {
+			if stat.Iface == "lo" || strings.HasPrefix(stat.Iface, "veth") {
+				continue
+			}
+
+			// not clear if this copying actually prevents anything...
+			rxBytes := stat.RxBytes
+			txBytes := stat.TxBytes
+			rxErrors := stat.RxErrs
+			txErrors := stat.TxErrs
+			netStats = append(netStats, statsv1.InterfaceStats{
+				Name:     stat.Iface,
+				RxBytes:  &rxBytes,
+				TxBytes:  &txBytes,
+				RxErrors: &rxErrors,
+				TxErrors: &txErrors,
+			})
+		}
+
+		if len(netStats) > 0 {
+			nodeStats.Network = &statsv1.NetworkStats{
+				Time:           nowStamp,
+				Interfaces:     netStats,
+				InterfaceStats: netStats[0],
+			}
+		}
+
+	}
+
 	// https://godoc.org/k8s.io/kubernetes/pkg/kubelet/apis/stats/v1alpha1#Summary
 	return &statsv1.Summary{
-		Node: statsv1.NodeStats{
-			NodeName:  ka.nodeName,
-			StartTime: nowStamp,
-			CPU: &statsv1.CPUStats{
-				Time:                 nowStamp,
-				UsageNanoCores:       &filler,
-				UsageCoreNanoSeconds: &filler,
-			},
-			Memory: &statsv1.MemoryStats{
-				Time:            nowStamp,
-				AvailableBytes:  &filler,
-				UsageBytes:      &filler,
-				WorkingSetBytes: &filler,
-				// RSSBytes:        &filler,
-			},
-		},
+		Node: nodeStats,
 		Pods: podStats,
 	}, nil
 }
