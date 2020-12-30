@@ -1,24 +1,20 @@
 
-# WireGuard: manage wireguard devices and tunnels
+# SelfProvision: manage wireguard devices and tunnels
 kube-pet ALL=NOPASSWD: /usr/bin/wg *
 kube-pet ALL=NOPASSWD: /bin/systemctl start wg-quick@*, /bin/systemctl stop wg-quick@*
 kube-pet ALL=NOPASSWD: /bin/systemctl enable wg-quick@*, /bin/systemctl disable wg-quick@*
 
-# PodMan: manage containers and pods with podman
+# Pods: manage containers and pods with podman
+# TODO: this would only be used for installing pods into systemd.
+# Not currently sure if we want to do that though!
 #kube-pet ALL=NOPASSWD: /usr/local/bin/podman *, /usr/bin/podman *
 #kube-pet ALL=NOPASSWD: /bin/systemctl start pod-*, /bin/systemctl stop pod-*
 #kube-pet ALL=NOPASSWD: /bin/systemctl start container-*, /bin/systemctl stop container-*
 #kube-pet ALL=NOPASSWD: /bin/systemctl enable /opt/kube-pet-node/unit-files/*, /bin/systemctl disable /opt/kube-pet-node/unit-files/*
 
 # Volumes: install piped contents into Podman-created directories
+# SelfProvision: install pod network into /etc/cni/net.d
 kube-pet ALL=NOPASSWD: /bin/tar -xf - *
 
-# SmartDrive
-# this should be in a container instead
-#kube-pet ALL=NOPASSWD: /usr/sbin/smartctl -a -- *
-
-# ContainerNetwork
-kube-pet ALL=NOPASSWD: /usr/bin/tee /etc/cni/net.d/*.conflist
-
-# run our node upgrade script
+# AutoUpgrade: run our node upgrade script
 kube-pet ALL=NOPASSWD: /opt/kube-pet-node/bin/node-upgrade.sh *
