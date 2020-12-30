@@ -13,6 +13,7 @@ import { combineLatest } from "https://cloudydeno.github.io/observables-with-str
 import { map } from "https://cloudydeno.github.io/observables-with-streams/src/transforms/map.ts";
 import { filter } from "https://cloudydeno.github.io/observables-with-streams/src/transforms/filter.ts";
 import { debounce } from "https://cloudydeno.github.io/observables-with-streams/src/transforms/debounce.ts";
+import { distinct } from "https://cloudydeno.github.io/observables-with-streams/src/transforms/distinct.ts";
 
 export {
   fromAsyncIterator,
@@ -24,6 +25,7 @@ export {
   map,
   filter,
   debounce,
+  distinct,
 };
 
 // Lightly debounced function that emits the reflector's whole cache when things are somewhat calm

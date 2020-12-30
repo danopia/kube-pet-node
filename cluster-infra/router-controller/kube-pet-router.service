@@ -1,0 +1,15 @@
+[Unit]
+Description=Manages a WireGuard configuration for kube-pet-node peers
+After=network.target
+
+[Service]
+User=root
+Group=root
+WorkingDirectory=/root/kube-pet-node/cluster-infra
+ExecStart=/root/.deno/bin/deno run --allow-read=/etc/wireguard --allow-write=/etc/wireguard --allow-run router-controller/mod.ts
+Environment=DENO_INSTALL=/root/.deno
+Restart=always
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target
