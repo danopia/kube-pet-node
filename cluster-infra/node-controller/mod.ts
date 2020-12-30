@@ -3,6 +3,7 @@ import {
   Reflector,
   CoreV1Api,
   ConfigMap,
+  CertificatesV1beta1Api,
   Status,
   KindIdsReq,
   ows,
@@ -13,6 +14,7 @@ import { loop } from "./loop.ts";
 
 const restClient = await autoDetectClient();
 const coreApi = new CoreV1Api(restClient);
+const certApi = new CertificatesV1beta1Api(restClient);
 
 // For rapid development, support disabling watchers entirely
 if (Deno.args.includes('--once')) {
@@ -24,7 +26,7 @@ if (Deno.args.includes('--once')) {
 async function runOnce() {
   console.log();
 
-  const [nodeList, configMapList] = await Promise.all([
+  const [nodeList, configMapList, csrList] = await Promise.all([
     coreApi
       .getNodeList({ labelSelector })
       .then(x => x.items.map(checkKindIds)),
@@ -32,9 +34,12 @@ async function runOnce() {
       .namespace(petNamespace)
       .getConfigMapList({ labelSelector })
       .then(x => x.items.map(checkKindIds)),
+    certApi
+      .getCertificateSigningRequestList({ labelSelector })
+      .then(x => x.items.map(checkKindIds)),
   ]);
 
-  await loop(restClient, nodeList, configMapList);
+  await loop(restClient, nodeList, configMapList, csrList);
 
   Deno.exit(0);
 }
@@ -50,13 +55,20 @@ async function runForever() {
     opts => coreApi.namespace(petNamespace).getConfigMapList({ ...opts, labelSelector }),
     opts => coreApi.namespace(petNamespace).watchConfigMapList({ ...opts, labelSelector }));
 
+  // Watch for certificate signings
+  const csrWatcher = new Reflector(
+    opts => certApi.getCertificateSigningRequestList({ ...opts, labelSelector }),
+    opts => certApi.watchCertificateSigningRequestList({ ...opts, labelSelector }));
+
+
   // Actually initiate talking to the cluster
   console.log('Starting reflection sync...');
   nodeWatcher.run();
   configMapWatcher.run();
+  csrWatcher.run();
 
   // Main loop, given the cluster state
-  for await (const [nodes, configMaps] of ows.combineLatest(
+  for await (const [nodes, configMaps, csrs] of ows.combineLatest(
 
     // Nodes, but only rerun on certain changes
     ows.fromReflectorCache(nodeWatcher, {
@@ -74,11 +86,16 @@ async function runForever() {
       idleDelayMs: 100,
     }),
 
+    // CSRs
+    ows.fromReflectorCache(csrWatcher, {
+      idleDelayMs: 250,
+    }),
+
   ).pipeThrough(ows.debounce(1000))) {
     console.log();
     console.log('---', new Date().toISOString());
 
-    await loop(restClient, nodes, configMaps);
+    await loop(restClient, nodes, configMaps, csrs);
 
     console.log('---');
     console.log();

@@ -14,6 +14,14 @@ export type {
   ConfigMap,
   ObjectReference,
 } from "https://deno.land/x/kubernetes_apis@v0.2.0/builtin/core@v1/mod.ts";
+
+export {
+  CertificatesV1beta1Api,
+} from "https://deno.land/x/kubernetes_apis@v0.2.0/builtin/certificates.k8s.io@v1beta1/mod.ts";
+export type {
+  CertificateSigningRequest
+} from "https://deno.land/x/kubernetes_apis@v0.2.0/builtin/certificates.k8s.io@v1beta1/mod.ts";
+
 export type {
   Status,
 } from "https://deno.land/x/kubernetes_apis@v0.2.0/builtin/meta@v1/structs.ts";

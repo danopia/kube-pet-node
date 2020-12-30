@@ -1,6 +1,8 @@
 import {
   KindIdsReq, KindIds, RestClient,
   CoreV1Api, Node, ConfigMap,
+  CertificatesV1beta1Api,
+  CertificateSigningRequest,
   ini, csv,
 } from "../deps.ts";
 
@@ -29,6 +31,7 @@ export async function loop(
   restClient: RestClient,
   nodes: (Node & KindIdsReq)[],
   configMaps: (ConfigMap & KindIdsReq)[],
+  csrs: (CertificateSigningRequest & KindIdsReq)[],
 ) {
   const coreApi = new CoreV1Api(restClient);
 
@@ -63,6 +66,11 @@ export async function loop(
     .filter(x => (x.metadata.annotations ?? {})[config.purposeAnnotation] === config.cfgPurposeNode)
     .filter(x => x.metadata.ownerReferences?.length === 1 && x.metadata.ownerReferences[0].kind === 'Node')
     .map(x => [x.metadata.ownerReferences![0].name, x]));
+
+  const pendingNodeCsrs = csrs
+    .filter(x => x.metadata.ownerReferences?.length === 1)
+    .filter(x => x.metadata.ownerReferences![0].kind === 'Node')
+    .filter(x => !x.status?.conditions && !x.status?.certificate);
 
   // Work on each node individually.
   for (const node of nodes) {
@@ -159,6 +167,32 @@ export async function loop(
       };
       console.log('Giving node', node.metadata.name, "launch annotations...", Object.keys(annotations));
       await coreApi.patchNode(node.metadata.name, 'strategic-merge', { metadata: { annotations }});
+    }
+
+    // Check if node has any pending CSRs
+    // Sorta replicates https://github.com/kubernetes/kubernetes/blob/cea1d4e20b4a7886d8ff65f34c6d4f95efcb4742/pkg/controller/certificates/approver/sarapprove.go
+    // but with less checks and balances...
+    for (const csr of pendingNodeCsrs) {
+      if (csr.metadata.ownerReferences![0].uid !== node.metadata.uid) continue;
+      if (csr.spec?.username !== `system:serviceaccount:kube-system:node.${node.metadata.name}`) continue;
+      if (!csr.spec.usages?.includes('server auth')) continue;
+
+      // TODO: crack open and read the actual .request body
+      // https://github.com/invisal/god_crypto/discussions/25
+
+      const csrApi = new CertificatesV1beta1Api(restClient);
+      csr.status = {
+        conditions: [{
+          lastTransitionTime: new Date(),
+          lastUpdateTime: new Date(),
+          message: "Auto approved by kube-pet-node's cluster node-controller",
+          reason: "PetAutoApproved",
+          status: "True",
+          type: "Approved",
+        }],
+      };
+      await csrApi.replaceCertificateSigningRequestApproval(csr.metadata.name, csr);
+      console.log('Approved CSR', csr.metadata.name);
     }
 
   }
