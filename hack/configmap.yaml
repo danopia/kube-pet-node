@@ -1,15 +1,37 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  namespace: kube-system
-  name: kube-pet-node
+  name: kube-pet-config
+  namespace: kube-pets
+  labels:
+    kubernetes.io/role: pet
+  annotations:
+    pet.wg69.net/purpose: cluster configuration
 data:
+
+  Networking: |
+    NodeRange = 10.6.24.0/22
+    PodRange = 10.8.0.0/14
+    ServiceRange = 10.6.0.0/20
+
+    WireguardMode = SelfProvision
+    CniNumber = 51
+    CniMtu = 1460
+
+    [Router]
+    PublicKey = GfTAq5zAEtb2h2qhsaGSz00DAY18rRFqGDAqrVhJpzk=
+    Endpoint = wg1.devmode.cloud:51822
+    NodePool = 10.6.26.10/24
+    PodPool = 10.10.0.0/16
+    PodPrefixLen = 24
+
+  # TODO: should be a CRD instead?
   TargetRelease: |
-    Version = 0.1.2-h52.48ffc84
+    Version = 0.2.1-h88.26da55f
     BaseUrl = https://s3-us-west-2.amazonaws.com/dist.stardustapp.run/
     AutoUpgrade = true
     [Platform]
     OS = linux
     Arch = amd64
-    DebUrl = deb/kube-pet-node_0.1.2-h52.48ffc84_amd64.deb
-    RpmUrl = rpm/kube-pet-node-0.1.2-h52.48ffc84.x86_64.rpm
+    DebUrl = deb/kube-pet-node_0.2.1-h88.26da55f_amd64.deb
+    RpmUrl = rpm/kube-pet-node-0.2.1-h88.26da55f.x86_64.rpm
