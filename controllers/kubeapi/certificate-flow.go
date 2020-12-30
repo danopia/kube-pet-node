@@ -36,10 +36,27 @@ func (ka *KubeApi) PerformCertificateFlow(ctx context.Context) error {
 			return err
 		}
 
+		// get my UID first..
+		me, err := ka.kubernetes.CoreV1().Nodes().Get(ctx, ka.nodeName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
 		// submit to API
 		csr, err = csrApi.Create(ctx, &certv1.CertificateSigningRequest{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: csrName,
+				Labels: map[string]string{
+					"kubernetes.io/role": "pet",
+				},
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: "v1",
+						Kind:       "Node",
+						Name:       ka.nodeName,
+						UID:        me.UID,
+					},
+				},
 			},
 			Spec: certv1.CertificateSigningRequestSpec{
 				Request: request,
