@@ -17,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/danopia/kube-pet-node/podman"
+	"github.com/danopia/kube-pet-node/pkg/podman"
 )
 
 // TODO: IPv6 can't be enabled until virtual-kubelet fixes corruption

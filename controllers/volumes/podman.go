@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/danopia/kube-pet-node/podman"
+	"github.com/danopia/kube-pet-node/pkg/podman"
 )
 
 func (ctl *VolumesController) ListRuntimeVolumes(ctx context.Context, podUid string) ([]string, error) {

@@ -1,4 +1,4 @@
-package volumes
+package fsinject
 
 import (
 	"archive/tar"
@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func startArchiveExtractin(ctx context.Context, dest string) (*ArchiveExtraction, error) {
+func StartArchiveExtraction(ctx context.Context, dest string) (*ArchiveExtraction, error) {
 	var cmd *exec.Cmd
 	if os.Getuid() == 1 {
 		cmd = exec.CommandContext(ctx, "tar", "-xf", "-", "-C", dest)
@@ -31,16 +31,17 @@ func startArchiveExtractin(ctx context.Context, dest string) (*ArchiveExtraction
 		command: cmd,
 		stdin:   stdin,
 		tar:     tar.NewWriter(stdin),
-		now:     time.Now(),
+		Now:     time.Now(),
 	}, nil
 }
 
 type ArchiveExtraction struct {
+	Now time.Time
+
 	err     error
 	command *exec.Cmd
 	stdin   io.WriteCloser
 	tar     *tar.Writer
-	now     time.Time
 }
 
 func (ae *ArchiveExtraction) WriteFile(name string, mode int64, body []byte) {
@@ -48,7 +49,7 @@ func (ae *ArchiveExtraction) WriteFile(name string, mode int64, body []byte) {
 		Name:    name,
 		Size:    int64(len(body)),
 		Mode:    mode, //int64(0644),
-		ModTime: ae.now,
+		ModTime: ae.Now,
 	})
 	if err != nil {
 		ae.err = err
@@ -70,7 +71,7 @@ func (ae *ArchiveExtraction) WriteSymLink(name string, target string) {
 		Name:     name,
 		// Size:     0,
 		Mode:    int64(0644),
-		ModTime: ae.now,
+		ModTime: ae.Now,
 	})
 	if err != nil {
 		ae.err = err

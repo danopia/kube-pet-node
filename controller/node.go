@@ -32,7 +32,7 @@ import (
 	"github.com/danopia/kube-pet-node/controllers/nodeidentity"
 	"github.com/danopia/kube-pet-node/controllers/pods"
 	"github.com/danopia/kube-pet-node/controllers/volumes"
-	// "github.com/danopia/kube-pet-node/podman"
+	// "github.com/danopia/kube-pet-node/pkg/podman"
 )
 
 type PetNode struct {

@@ -9,7 +9,7 @@ import (
 
 	"github.com/pbnjay/memory"
 
-	"github.com/danopia/kube-pet-node/podman"
+	"github.com/danopia/kube-pet-node/pkg/podman"
 )
 
 // CreatePod takes a Kubernetes Pod and deploys it within the provider.

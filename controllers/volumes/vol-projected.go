@@ -9,6 +9,8 @@ import (
 	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/danopia/kube-pet-node/pkg/fsinject"
 )
 
 func (ctl *VolumesController) CreateProjectedVolume(ctx context.Context, pod *corev1.Pod, volName string, projectedSource *corev1.ProjectedVolumeSource) error {
@@ -49,12 +51,12 @@ func (ctl *VolumesController) CreateProjectedVolume(ctx context.Context, pod *co
 		return err
 	}
 
-	tar, err := startArchiveExtractin(ctx, volPath)
+	tar, err := fsinject.StartArchiveExtraction(ctx, volPath)
 	if err != nil {
 		return err
 	}
 
-	resVersion := strconv.FormatInt(tar.now.Unix(), 10)
+	resVersion := strconv.FormatInt(tar.Now.Unix(), 10)
 	for path, data := range paths {
 		tar.WriteFile("..data/"+resVersion+"/"+path, mode, data)
 	}

@@ -13,7 +13,7 @@ import (
 
 	"github.com/danopia/kube-pet-node/controllers/caching"
 	"github.com/danopia/kube-pet-node/controllers/volumes"
-	"github.com/danopia/kube-pet-node/podman"
+	"github.com/danopia/kube-pet-node/pkg/podman"
 )
 
 type PodmanProvider struct {

@@ -15,7 +15,7 @@ import (
 
 	// "k8s.io/client-go/tools/record"
 
-	"github.com/danopia/kube-pet-node/podman"
+	"github.com/danopia/kube-pet-node/pkg/podman"
 )
 
 func NewNodeIdentity(ctx context.Context, kubernetes *kubernetes.Clientset, nodeName string, petVersion string, conVersion *podman.DockerVersionReport, maxPods int, nodeIP net.IP, podNets []net.IPNet) (*node.NodeController, error) {

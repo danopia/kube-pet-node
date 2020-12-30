@@ -12,7 +12,7 @@ import (
 	vkapi "github.com/virtual-kubelet/virtual-kubelet/node/api"
 
 	"github.com/danopia/kube-pet-node/controllers/pods"
-	"github.com/danopia/kube-pet-node/podman"
+	"github.com/danopia/kube-pet-node/pkg/podman"
 )
 
 func (ka *KubeApi) RunInContainer(ctx context.Context, namespace, podName, containerName string, cmd []string, attach vkapi.AttachIO) error {

@@ -10,7 +10,7 @@ import (
 	kubernetes "k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	"github.com/danopia/kube-pet-node/podman"
+	"github.com/danopia/kube-pet-node/pkg/podman"
 )
 
 // Controller !
@@ -46,4 +46,3 @@ func NewController(nodeName string, vpnIface string, cniNet string, kubernetes *
 		podman:       podman,
 	}
 }
-
