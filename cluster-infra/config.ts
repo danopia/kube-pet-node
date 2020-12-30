@@ -15,3 +15,5 @@ export const purposeAnnotation = "pet.wg69.net/purpose";
 export const cfgPurposeCluster = "cluster configuration";
 export const cfgPurposeNode = "node configuration";
 export const cfgPurposeAllocs = "address allocation table";
+
+export const allocFields = "NodeKey,RouterKey,NodeName,NodeIP,PodNet";

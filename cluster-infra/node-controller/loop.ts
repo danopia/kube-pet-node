@@ -54,7 +54,7 @@ export async function loop(
         annotations: { [config.purposeAnnotation]: config.cfgPurposeAllocs },
       },
       data: {
-        table: `NodeKey,RouterKey,NodeName,NodeIP,PodNet\n`,
+        table: `${config.allocFields}\n`,
       }});
   }
 
@@ -106,7 +106,9 @@ export async function loop(
         allocations.push(allocation);
         console.log('Storing new allocation:', allocation);
 
-        allocationCfgMap.data.table = await csv.stringify(allocations, 'NodeKey,RouterKey,NodeName,NodeIP,PodNet'.split(','));
+        allocationCfgMap.data.table = await csv
+          .stringify(allocations, config.allocFields.split(','))
+          .then(x => x.replace(/\r\n/g, `\n`));
         allocationCfgMap = await coreApi
           .namespace(config.petNamespace)
           .replaceConfigMap(allocationCfgMap.metadata!.name!, allocationCfgMap);
