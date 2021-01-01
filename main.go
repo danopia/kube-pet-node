@@ -28,7 +28,7 @@ func main() {
 	var podmanSockFlag = flag.String("podman-socket", "tcp:127.0.0.1:8410", "podman socket location, either 'tcp:' or 'unix:' prefix")
 	var vpnIfaceFlag = flag.String("vpn-iface", "wg-gke", "network interface which the other cluster nodes and pods are available on")
 	var cniNetFlag = flag.String("cni-net", "kube-pet-net", "CNI network which provides local pods with networking and addresses")
-	var maxPodsFlag = flag.Int("max-pods", 10, "number of pods this node should support. 0 effectively disables scheduling")
+	var maxPodsFlag = flag.Int("max-pods", 25, "number of pods this node should support. 0 effectively disables scheduling")
 	_ = flag.String("controllers", "firewall,podman", "which features to run")
 	flag.Parse()
 
