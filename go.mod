@@ -38,16 +38,13 @@ require (
 	github.com/google/nftables v0.0.0-20200802175506-c25e4f69b425
 	github.com/gorilla/mux v1.7.4 // indirect
 	github.com/imdario/mergo v0.3.9 // indirect
-	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
-	github.com/onsi/ginkgo v1.12.0 // indirect
-	github.com/onsi/gomega v1.9.0 // indirect
 	github.com/pbnjay/memory v0.0.0-20190104145345-974d429e7ae4
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sirupsen/logrus v1.5.0 // indirect
 	github.com/stretchr/testify v1.5.1 // indirect
 	github.com/tklauser/go-sysconf v0.0.0-20200824103752-188b5e10b55f
-	github.com/virtual-kubelet/virtual-kubelet v1.3.0
+	github.com/virtual-kubelet/virtual-kubelet v1.4.0
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
 	go.opencensus.io v0.22.0 // indirect
 	golang.org/x/crypto v0.0.0-20201117144127-c1f2f97bffc9
@@ -56,8 +53,8 @@ require (
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 	gopkg.in/ini.v1 v1.57.0
-	k8s.io/api v0.18.4
-	k8s.io/apimachinery v0.18.4
+	k8s.io/api v0.18.6
+	k8s.io/apimachinery v0.18.6
 	k8s.io/client-go v10.0.0+incompatible
 	k8s.io/kubernetes v1.18.4
 )

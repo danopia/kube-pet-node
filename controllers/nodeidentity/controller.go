@@ -74,7 +74,7 @@ func NewNodeIdentity(ctx context.Context, kubernetes *kubernetes.Clientset, node
 
 	return node.NewNodeController(nodeProvider, pNode,
 		kubernetes.CoreV1().Nodes(),
-		node.WithNodeEnableLeaseV1Beta1(kubernetes.CoordinationV1beta1().Leases(corev1.NamespaceNodeLease), nil),
+		node.WithNodeEnableLeaseV1(kubernetes.CoordinationV1().Leases(corev1.NamespaceNodeLease), 0),
 		node.WithNodeStatusUpdateErrorHandler(func(ctx context.Context, err error) error {
 			log.Println("NodeStatus Update err:", err)
 			// if !k8serrors.IsNotFound(err) {
