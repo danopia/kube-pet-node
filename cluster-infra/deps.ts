@@ -40,4 +40,11 @@ export * as Base64 from "https://deno.land/x/base64@v0.2.1/mod.ts";
 export { Address4, Address6 } from "https://cdn.skypack.dev/ip-address@v7.1.0-qifrqZtRtyG5xhdaMNB1?dts";
 export { BigInteger } from "https://cdn.skypack.dev/jsbn@v1.1.0-ubfhY6n9xCGJzdkRcjkl?dts";
 
+export {
+  runMetricsServer,
+} from "https://raw.githubusercontent.com/cloudydeno/deno-openmetrics_exporter/9425a42bd92595e75fb45034df70d8eff61aa10d/mod.ts";
+export {
+  replaceGlobalFetch,
+} from "https://raw.githubusercontent.com/cloudydeno/deno-openmetrics_exporter/9425a42bd92595e75fb45034df70d8eff61aa10d/lib/instrumented/fetch.ts";
+
 export * as ows from "./deps-ows.ts";

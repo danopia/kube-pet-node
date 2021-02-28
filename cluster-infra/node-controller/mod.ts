@@ -7,10 +7,17 @@ import {
   Status,
   KindIdsReq,
   ows,
+  runMetricsServer, replaceGlobalFetch,
 } from "../deps.ts";
 
 import { labelSelector, petNamespace } from "../config.ts";
 import { loop } from "./loop.ts";
+
+if (Deno.args.includes('--serve-metrics')) {
+  replaceGlobalFetch();
+  runMetricsServer({ port: 9090 });
+  console.log("Now serving OpenMetrics @ :9090/metrics");
+}
 
 const restClient = await autoDetectClient();
 const coreApi = new CoreV1Api(restClient);
