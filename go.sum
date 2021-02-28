@@ -580,6 +580,8 @@ github.com/virtual-kubelet/virtual-kubelet v1.3.0 h1:ixQRrPcVcRHoMO0WcQolyOs/ScZ
 github.com/virtual-kubelet/virtual-kubelet v1.3.0/go.mod h1:kuDs8O1dU0pLMLxzx7zvf4haeS6jB3YMbD73zWe1sV4=
 github.com/virtual-kubelet/virtual-kubelet v1.4.0 h1:rhRtrPXqELgHTjRriCEdXZbabw7BhW0HMcVS7F7nt/c=
 github.com/virtual-kubelet/virtual-kubelet v1.4.0/go.mod h1:FqpZuD7YksodOllINMDlNb7YOcqKXERA/1c4DnIJfNg=
+github.com/virtual-kubelet/virtual-kubelet v1.5.0 h1:Rr1iGT6Lqf5XI2I/zUKu/gMhDa1hWADWAaRDQ+zd/9Q=
+github.com/virtual-kubelet/virtual-kubelet v1.5.0/go.mod h1:kWb3dGw6xWvTpKHYw3J16xCaSX1pdIGgelAKgw4qTi4=
 github.com/vishvananda/netlink v1.0.0/go.mod h1:+SR5DhBJrl6ZM7CoCKvpw5BKroDKQ+PJqOg65H/2ktk=
 github.com/vishvananda/netns v0.0.0-20171111001504-be1fbeda1936/go.mod h1:ZjcWmFBXmLKZu9Nxj3WKYEafiSqer2rnvPr0en9UNpI=
 github.com/vishvananda/netns v0.0.0-20180720170159-13995c7128cc/go.mod h1:ZjcWmFBXmLKZu9Nxj3WKYEafiSqer2rnvPr0en9UNpI=

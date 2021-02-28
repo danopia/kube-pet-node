@@ -44,9 +44,10 @@ require (
 	github.com/sirupsen/logrus v1.5.0 // indirect
 	github.com/stretchr/testify v1.5.1 // indirect
 	github.com/tklauser/go-sysconf v0.0.0-20200824103752-188b5e10b55f
-	github.com/virtual-kubelet/virtual-kubelet v1.4.0
+	github.com/virtual-kubelet/virtual-kubelet v1.5.0
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
 	go.opencensus.io v0.22.0 // indirect
+	go.uber.org/goleak v1.1.10 // indirect
 	golang.org/x/crypto v0.0.0-20201117144127-c1f2f97bffc9
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b // indirect
 	golang.org/x/sys v0.0.0-20201117222635-ba5294a509c7
