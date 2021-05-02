@@ -7,19 +7,19 @@ import {
 } from "../deps.ts";
 
 import * as config from "../config.ts";
-import { NetworkingConfig, NodeAllocation } from "../types.ts";
+import { NetworkingConfig, NetworkingRouter, NodeAllocation } from "../types.ts";
 import { findNextAllocation } from "../lib/allocations.ts";
 
 function readNetworkingConfig(raw: string) {
   const [topSect, ...sections] = raw.replace(/^\[/gm, '[[').split(/^\[/gm);
-  const config = ini.parse(topSect) as NetworkingConfig;
+  const config = ini.decode(topSect)[ini.DEFAULT_SECTION] as unknown as NetworkingConfig;
   if (!config.NodeRange) throw new Error(`the networking config is bad`);
 
   config.Routers = [];
   for (const section of sections) {
-    const parsed = ini.parse(section);
+    const parsed = ini.decode(section);
     if (parsed.Router) {
-      config.Routers.push(parsed.Router);
+      config.Routers.push(parsed.Router as unknown as NetworkingRouter);
     }
   }
 

@@ -43,8 +43,8 @@ function privateToPublic(privKeyStr: string): string {
 const ourPubKey = await Deno
   .readTextFile(configPath)
   .then(x => x.split('[Peer]')[0])
-  .then(x => ini.parse(x) as {Interface: {PrivateKey: string}})
-  .then(x => privateToPublic(x.Interface.PrivateKey))
+  .then(x => ini.decode(x)['Interface'] as {PrivateKey: string})
+  .then(x => privateToPublic(x.PrivateKey))
 
 const restClient = await autoDetectClient();
 const coreApi = new CoreV1Api(restClient);

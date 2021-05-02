@@ -1,22 +1,18 @@
-import { Reflector, ReflectorEvent, KindIdsReq } from "https://deno.land/x/kubernetes_client@v0.2.0/lib/reflector.ts";
+import { Reflector, ReflectorEvent, KindIdsReq } from "https://deno.land/x/kubernetes_client@v0.2.3/lib/reflector.ts";
 
-// Not actually from OWS, but fits in really well, sue me
-import {
-  readableStreamFromAsyncIterator as fromAsyncIterator,
-} from "https://deno.land/std@0.88.0/io/streams.ts";
-
-import { fromTimer } from "https://cloudydeno.github.io/observables-with-streams/src/sources/from-timer.ts";
-import { just } from "https://cloudydeno.github.io/observables-with-streams/src/sources/just.ts";
-import { merge } from "https://cloudydeno.github.io/observables-with-streams/src/combiners/merge.ts";
-import { combineLatest } from "https://cloudydeno.github.io/observables-with-streams/src/combiners/combine-latest.ts";
-// import { merge } from "https://cloudydeno.github.io/observables-with-streams/src/combiners/merge.ts";
-import { map } from "https://cloudydeno.github.io/observables-with-streams/src/transforms/map.ts";
-import { filter } from "https://cloudydeno.github.io/observables-with-streams/src/transforms/filter.ts";
-import { debounce } from "https://cloudydeno.github.io/observables-with-streams/src/transforms/debounce.ts";
-import { distinct } from "https://cloudydeno.github.io/observables-with-streams/src/transforms/distinct.ts";
+import { fromIterable } from "https://deno.land/x/stream_observables@v1.0/sources/from-iterable.ts";
+import { fromTimer } from "https://deno.land/x/stream_observables@v1.0/sources/from-timer.ts";
+import { just } from "https://deno.land/x/stream_observables@v1.0/sources/just.ts";
+import { merge } from "https://deno.land/x/stream_observables@v1.0/combiners/merge.ts";
+import { combineLatest } from "https://deno.land/x/stream_observables@v1.0/combiners/combine-latest.ts";
+// import { merge } from "https://deno.land/x/stream_observables@v1.0/combiners/merge.ts";
+import { map } from "https://deno.land/x/stream_observables@v1.0/transforms/map.ts";
+import { filter } from "https://deno.land/x/stream_observables@v1.0/transforms/filter.ts";
+import { debounce } from "https://deno.land/x/stream_observables@v1.0/transforms/debounce.ts";
+import { distinct } from "https://deno.land/x/stream_observables@v1.0/transforms/distinct.ts";
 
 export {
-  fromAsyncIterator,
+  fromIterable,
   fromTimer,
   just,
   merge,
@@ -35,7 +31,7 @@ export function fromReflectorCache<T,S>(reflector: Reflector<T,S>, opts: {
   eventFilter?: (evt: ReflectorEvent<T,S>) => boolean;
   changeFilterKeyFunc?: (node: T) => unknown,
 } = {}) {
-  return fromAsyncIterator(reflector.observeAll())
+  return fromIterable(reflector.observeAll())
     .pipeThrough(filter(evt => {
       if (evt.type === 'BOOKMARK' || evt.type === 'DESYNCED' || evt.type === 'ERROR') return false;
       if (evt.type === 'MODIFIED' && opts.changeFilterKeyFunc) {
