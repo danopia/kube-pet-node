@@ -29,12 +29,11 @@ export type {
 // from https://github.com/cloudydeno/deno-bitesized
 export * as ini from "https://crux.land/6mMyhY#ini@v1";
 
+export * as Base64 from "https://deno.land/std@0.95.0/encoding/base64.ts";
 // docs: https://deno.land/std@0.95.0/encoding#csv
 export * as csv from "https://deno.land/std@0.95.0/encoding/csv.ts";
 
 export { Curve25519 } from "https://deno.land/x/curve25519@v0.2.0/mod.ts";
-
-export * as Base64 from "https://deno.land/x/base64@v0.2.1/mod.ts";
 
 // docs: https://ip-address.js.org/
 export { Address4, Address6 } from "https://cdn.skypack.dev/ip-address@v7.1.0-qifrqZtRtyG5xhdaMNB1?dts";

@@ -27,8 +27,7 @@ interface ConfigSnapshot {
 }
 
 function privateToPublic(privKeyStr: string): string {
-  console.log(privKeyStr)
-  const privKey = Base64.toUint8Array(privKeyStr);
+  const privKey = Base64.decode(privKeyStr);
   if (privKey.length !== 32) throw new Error(`privkey of bad length`);
 
   const curve = new Curve25519();
@@ -37,7 +36,7 @@ function privateToPublic(privKeyStr: string): string {
   curve.selftest();
 
   const pubKey = curve.scalarMult(privKey, curve._9);
-  return Base64.fromUint8Array(pubKey);
+  return Base64.encode(pubKey);
 }
 
 const ourPubKey = await Deno
