@@ -1,30 +1,30 @@
-export { autoDetectClient, Reflector } from "https://deno.land/x/kubernetes_client@v0.2.3/mod.ts";
-export type { RestClient } from "https://deno.land/x/kubernetes_client@v0.2.3/mod.ts";
+export { autoDetectClient, Reflector } from "https://deno.land/x/kubernetes_client@v0.2.4/mod.ts";
+export type { RestClient } from "https://deno.land/x/kubernetes_client@v0.2.4/mod.ts";
 
 export type {
   KindIds,
   KindIdsReq,
-} from "https://deno.land/x/kubernetes_client@v0.2.3/lib/reflector.ts";
+} from "https://deno.land/x/kubernetes_client@v0.2.4/lib/reflector.ts";
 
 export {
   CoreV1Api,
-} from "https://deno.land/x/kubernetes_apis@v0.3.0/builtin/core@v1/mod.ts";
+} from "https://deno.land/x/kubernetes_apis@v0.3.1/builtin/core@v1/mod.ts";
 export type {
   Node,
   ConfigMap,
   ObjectReference,
-} from "https://deno.land/x/kubernetes_apis@v0.3.0/builtin/core@v1/mod.ts";
+} from "https://deno.land/x/kubernetes_apis@v0.3.1/builtin/core@v1/mod.ts";
 
 export {
   CertificatesV1beta1Api,
-} from "https://deno.land/x/kubernetes_apis@v0.3.0/builtin/certificates.k8s.io@v1beta1/mod.ts";
+} from "https://deno.land/x/kubernetes_apis@v0.3.1/builtin/certificates.k8s.io@v1beta1/mod.ts";
 export type {
   CertificateSigningRequest
-} from "https://deno.land/x/kubernetes_apis@v0.3.0/builtin/certificates.k8s.io@v1beta1/mod.ts";
+} from "https://deno.land/x/kubernetes_apis@v0.3.1/builtin/certificates.k8s.io@v1beta1/mod.ts";
 
 export type {
   Status,
-} from "https://deno.land/x/kubernetes_apis@v0.3.0/builtin/meta@v1/structs.ts";
+} from "https://deno.land/x/kubernetes_apis@v0.3.1/builtin/meta@v1/structs.ts";
 
 // from https://github.com/cloudydeno/deno-bitesized
 export * as ini from "https://crux.land/6mMyhY#ini@v1";

@@ -1,4 +1,4 @@
-import { Reflector, ReflectorEvent, KindIdsReq } from "https://deno.land/x/kubernetes_client@v0.2.3/lib/reflector.ts";
+import { Reflector, ReflectorEvent, KindIdsReq } from "https://deno.land/x/kubernetes_client@v0.2.4/lib/reflector.ts";
 
 import { fromIterable } from "https://deno.land/x/stream_observables@v1.0/sources/from-iterable.ts";
 import { fromTimer } from "https://deno.land/x/stream_observables@v1.0/sources/from-timer.ts";
