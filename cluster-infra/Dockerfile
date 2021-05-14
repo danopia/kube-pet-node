@@ -1,4 +1,4 @@
-FROM hayd/alpine-deno:1.9.2
+FROM hayd/alpine-deno:1.10.1
 WORKDIR /src/kube-pet-node/cluster-info
 
 ADD deps.ts deps-ows.ts ./
