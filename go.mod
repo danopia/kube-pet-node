@@ -32,12 +32,8 @@ require (
 	github.com/c9s/goprocinfo v0.0.0-20200311234719-5750cbd54a3b
 	github.com/coreos/go-semver v0.3.0
 	github.com/docker/go-units v0.4.0
-	github.com/fsnotify/fsnotify v1.4.9 // indirect
-	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef // indirect
-	github.com/google/go-cmp v0.4.0 // indirect
 	github.com/google/nftables v0.0.0-20200802175506-c25e4f69b425
 	github.com/gorilla/mux v1.7.4 // indirect
-	github.com/imdario/mergo v0.3.9 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/pbnjay/memory v0.0.0-20190104145345-974d429e7ae4
 	github.com/pkg/errors v0.9.1 // indirect
@@ -47,7 +43,6 @@ require (
 	github.com/virtual-kubelet/virtual-kubelet v1.5.0
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
 	go.opencensus.io v0.22.0 // indirect
-	go.uber.org/goleak v1.1.10 // indirect
 	golang.org/x/crypto v0.0.0-20201117144127-c1f2f97bffc9
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b // indirect
 	golang.org/x/sys v0.0.0-20201117222635-ba5294a509c7
@@ -57,5 +52,5 @@ require (
 	k8s.io/api v0.18.6
 	k8s.io/apimachinery v0.18.6
 	k8s.io/client-go v10.0.0+incompatible
-	k8s.io/kubernetes v1.18.4
+	k8s.io/kubernetes v1.18.19
 )
