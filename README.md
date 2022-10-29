@@ -1,6 +1,15 @@
 # kube-pet-node
 
-Proof of Concept
+## Development has ceased
+
+I no longer run this software.
+I ended up falling back to 'real' Kubernetes for cluster nodes.
+The experiment was fun, but I didn't really want to reimplement everything down to CrashLoopBackOff,
+and there were some struggles tracking Podman as that project continued shaping itself.
+If I did this again, I would use Typescript instead,
+and probably reuse more existing work like the Kubernetes CNI ecosystem.
+
+## Proof of Concept
 
 ```
 dan@penguin ~> kubectl get nodes
